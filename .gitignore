@@ -21,6 +21,18 @@ data/
 config/settings.yaml
 config/*.secret*
 
+# Nunca versionar caches/bytecode
+**/__pycache__/
+**/*.pyc
+
+# Nunca versionar logs de ejecución
+src/run_logs/
+**/*.log
+
+# Si generas outputs/artefactos dentro de src (opcional)
+src/**/outputs/
+src/**/artifacts/
+
 # --- Repo oficial: solo src + docs + readme + meta ---
 # Ignorar TODO por defecto
 /*
