@@ -1,0 +1,18 @@
+OK 58/73
+
+PENDIENTES (fallan / no llegaron a OK):
+- eval\build_kpis_dh_poscosecha_ml2.py
+- eval\build_kpis_harvest_horizon_ml2.py
+- eval\build_kpis_harvest_start_ml2.py
+- audit\audit_ajuste_poscosecha_ml2.py
+- audit\audit_desp_poscosecha_ml2.py
+- audit\audit_dh_poscosecha_ml2.py
+- audit\audit_harvest_horizon_ml2.py
+- audit\audit_harvest_start_ml2.py
+- audit\audit_hidr_poscosecha_ml2.py
+- audit\audit_ml1_curva_share_vs_real.py
+- audit\audit_ml1_curva_shares.py
+- audit\audit_peso_tallo_ml2.py
+- audit\audit_poscosecha_ml2_baseline.py
+- audit\audit_share_grado_ml2.py
+- audit\audit_tallos_curve_ml2.py

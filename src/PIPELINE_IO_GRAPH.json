@@ -1,0 +1,3265 @@
+{
+  "src_root": "C:\\Data-LakeHouse\\src",
+  "scripts": [
+    {
+      "script": "\\src\\audit\\audit_ajuste_poscosecha_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\audit\\audit_ajuste_poscosecha_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:ml2_ajuste_poscosecha_eval_global.parquet",
+        "literal:ml2_ajuste_poscosecha_eval_by_destino.parquet",
+        "literal:ml2_ajuste_poscosecha_eval_ratio_dist.parquet",
+        "literal:pred_poscosecha_ml2_ajuste_grado_dia_bloque_destino_final.parquet",
+        "literal:dim_mermas_ajuste_fecha_post_destino.parquet",
+        "literal:audit_ajuste_poscosecha_ml2_kpi_global_{ts}.parquet",
+        "literal:audit_ajuste_poscosecha_ml2_kpi_by_destino_{ts}.parquet",
+        "literal:audit_ajuste_poscosecha_ml2_ratio_dist_{ts}.parquet",
+        "literal:audit_ajuste_poscosecha_ml2_examples_10x2_{ts}.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\audit\\audit_desp_poscosecha_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\audit\\audit_desp_poscosecha_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_poscosecha_ml2_desp_grado_dia_bloque_destino_final.parquet",
+        "literal:dim_mermas_ajuste_fecha_post_destino.parquet",
+        "literal:audit_desp_poscosecha_ml2_kpi_global_{TS}.parquet",
+        "literal:audit_desp_poscosecha_ml2_kpi_by_destino_{TS}.parquet",
+        "literal:audit_desp_poscosecha_ml2_ratio_dist_{TS}.parquet",
+        "literal:audit_desp_poscosecha_ml2_examples_10x2_{TS}.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\audit\\audit_dh_poscosecha_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\audit\\audit_dh_poscosecha_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:ml2_dh_poscosecha_eval_global.parquet",
+        "literal:ml2_dh_poscosecha_eval_by_destino.parquet",
+        "literal:ml2_dh_poscosecha_eval_by_grado.parquet",
+        "literal:ml2_dh_poscosecha_eval_delta_dist.parquet",
+        "literal:backtest_factor_ml2_dh_poscosecha.parquet",
+        "literal:fact_hidratacion_real_post_grado_destino.parquet",
+        "literal:)}.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\audit\\audit_dist_grado_ml1.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\audit\\audit_dist_grado_ml1.py",
+      "inputs": [
+        "data/gold/pred_dist_grado_ml1.parquet",
+        "data/gold/universe_harvest_grid_ml1.parquet"
+      ],
+      "outputs": [
+        "data/audit/audit_dist_grado_ml1_summary.json"
+      ],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "dump(<dynamic>)",
+        "literal:data/audit/audit_dist_grado_ml1_checks.parquet"
+      ],
+      "stage_guess": "audit"
+    },
+    {
+      "script": "\\src\\audit\\audit_harvest_horizon_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\audit\\audit_harvest_horizon_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:fact_ciclo_maestro.parquet",
+        "literal:backtest_factor_ml2_harvest_horizon.parquet",
+        "literal:audit_harvest_horizon_ml2_kpi_global_{ts}.parquet",
+        "literal:audit_harvest_horizon_ml2_adjust_dist_{ts}.parquet",
+        "literal:audit_harvest_horizon_ml2_kpi_by_estado_{ts}.parquet",
+        "literal:audit_harvest_horizon_ml2_examples_10x2_{ts}.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\audit\\audit_harvest_start_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\audit\\audit_harvest_start_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "to_csv(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:fact_ciclo_maestro.parquet",
+        "literal:factor_ml2_harvest_start.parquet",
+        "literal:ds_harvest_start_ml2_v2.parquet",
+        "literal:audit_harvest_start_ml2_kpi_global_{ts}.parquet",
+        "literal:audit_harvest_start_ml2_adjust_dist_{ts}.parquet",
+        "literal:audit_harvest_start_ml2_kpi_by_estado_{ts}.parquet",
+        "literal:audit_harvest_start_ml2_agro_corr_{ts}.parquet",
+        "literal:audit_harvest_start_ml2_examples_10x2_{ts}.parquet",
+        "literal:audit_harvest_start_ml2_examples_10x2_{ts}.csv"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\audit\\audit_harvest_windows_real.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\audit\\audit_harvest_windows_real.py",
+      "inputs": [
+        "data/silver/fact_ciclo_maestro.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [],
+      "stage_guess": "silver"
+    },
+    {
+      "script": "\\src\\audit\\audit_hidr_poscosecha_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\audit\\audit_hidr_poscosecha_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:ml2_hidr_poscosecha_eval_global.parquet",
+        "literal:ml2_hidr_poscosecha_eval_by_destino.parquet",
+        "literal:ml2_hidr_poscosecha_eval_by_grado.parquet",
+        "literal:ml2_hidr_poscosecha_eval_ratio_dist.parquet",
+        "literal:pred_poscosecha_ml2_hidr_grado_dia_bloque_destino_final.parquet",
+        "literal:fact_hidratacion_real_post_grado_destino.parquet",
+        "literal:audit_hidr_poscosecha_ml2_kpi_global_{ts}.parquet",
+        "literal:audit_hidr_poscosecha_ml2_kpi_by_destino_{ts}.parquet",
+        "literal:audit_hidr_poscosecha_ml2_kpi_by_grado_{ts}.parquet",
+        "literal:audit_hidr_poscosecha_ml2_ratio_dist_{ts}.parquet",
+        "literal:audit_hidr_poscosecha_ml2_examples_10x2_{ts}.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\audit\\audit_mass_balance_pred_oferta_vs_gold.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\audit\\audit_mass_balance_pred_oferta_vs_gold.py",
+      "inputs": [
+        "data/gold/pred_tallos_grado_dia_ml1_full.parquet",
+        "data/preds/pred_oferta_dia.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\audit\\audit_mismatch_tallos_grado_vs_dia.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\audit\\audit_mismatch_tallos_grado_vs_dia.py",
+      "inputs": [
+        "data/gold/pred_tallos_grado_dia_ml1_full.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [],
+      "stage_guess": "gold"
+    },
+    {
+      "script": "\\src\\audit\\audit_ml1_curva_clipping_impact.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\audit\\audit_ml1_curva_clipping_impact.py",
+      "inputs": [
+        "data/gold/pred_factor_curva_ml1.parquet",
+        "data/gold/universe_harvest_grid_ml1.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "literal:data/audit/audit_ml1_curva_clipping_report.parquet",
+        "literal:data/audit/audit_ml1_curva_clipping_by_relpos.parquet",
+        "literal:data/audit/audit_ml1_curva_clipping_by_cycle.parquet"
+      ],
+      "stage_guess": "gold"
+    },
+    {
+      "script": "\\src\\audit\\audit_ml1_curva_share_vs_real.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\audit\\audit_ml1_curva_share_vs_real.py",
+      "inputs": [
+        "data/gold/pred_factor_curva_ml1.parquet",
+        "data/gold/universe_harvest_grid_ml1.parquet",
+        "data/preds/pred_oferta_dia.parquet",
+        "data/silver/dim_cosecha_progress_bloque_fecha.parquet"
+      ],
+      "outputs": [
+        "data/audit/audit_ml1_curva_share_report.parquet"
+      ],
+      "unknown_io_hints": [
+        "to_parquet(<dynamic>)",
+        "literal:audit_ml1_curva_share_cycle_metrics.parquet"
+      ],
+      "stage_guess": "audit"
+    },
+    {
+      "script": "\\src\\audit\\audit_ml1_curva_shares.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\audit\\audit_ml1_curva_shares.py",
+      "inputs": [
+        "data/gold/pred_dist_grado_ml1.parquet",
+        "data/gold/pred_factor_curva_ml1.parquet",
+        "data/gold/pred_tallos_grado_dia_ml1_full.parquet",
+        "data/gold/universe_harvest_grid_ml1.parquet",
+        "data/preds/pred_oferta_dia.parquet",
+        "data/silver/dim_cosecha_progress_bloque_fecha.parquet",
+        "data/silver/dim_variedad_canon.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "literal:coverage.parquet",
+        "literal:invariants_day.parquet",
+        "literal:mass_balance_cycle.parquet",
+        "literal:day_panel.parquet",
+        "literal:shape_cycle.parquet",
+        "literal:shape_segmentation.parquet"
+      ],
+      "stage_guess": "silver"
+    },
+    {
+      "script": "\\src\\audit\\audit_peso_tallo_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\audit\\audit_peso_tallo_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:backtest_factor_ml2_peso_tallo_grado_dia.parquet",
+        "literal:fact_cosecha_real_grado_dia.parquet",
+        "literal:audit_peso_tallo_ml2_kpi_global_{TS}.parquet",
+        "literal:audit_peso_tallo_ml2_ratio_dist_{TS}.parquet",
+        "literal:audit_peso_tallo_ml2_kpi_by_grado_{TS}.parquet",
+        "literal:audit_peso_tallo_ml2_examples_10x2_{TS}.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\audit\\audit_poscosecha_ml2_baseline.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\audit\\audit_poscosecha_ml2_baseline.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:ml2_poscosecha_baseline_eval_global.parquet",
+        "literal:ml2_poscosecha_baseline_eval_by_destino.parquet",
+        "literal:ml2_poscosecha_baseline_eval_by_grado.parquet",
+        "literal:ml2_poscosecha_baseline_eval_coverage.parquet",
+        "literal:pred_poscosecha_ml2_full_grado_dia_bloque_destino.parquet",
+        "literal:fact_hidratacion_real_post_grado_destino.parquet",
+        "literal:dim_mermas_ajuste_fecha_post_destino.parquet",
+        "literal:audit_poscosecha_baseline_kpi_global_{ts}.parquet",
+        "literal:audit_poscosecha_baseline_kpi_by_destino_{ts}.parquet",
+        "literal:audit_poscosecha_baseline_kpi_by_grado_{ts}.parquet",
+        "literal:audit_poscosecha_baseline_coverage_{ts}.parquet",
+        "literal:audit_poscosecha_baseline_examples_10x2_{ts}.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\audit\\audit_poscosecha_seed.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\audit\\audit_poscosecha_seed.py",
+      "inputs": [
+        "data/gold/pred_poscosecha_seed_dia_destino.parquet",
+        "data/gold/pred_poscosecha_seed_dia_total.parquet",
+        "data/gold/pred_poscosecha_seed_grado_dia_bloque_destino.parquet"
+      ],
+      "outputs": [
+        "data/audit/audit_poscosecha_seed_summary.json"
+      ],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "dump(<dynamic>)",
+        "literal:data/audit/audit_poscosecha_seed_checks.parquet"
+      ],
+      "stage_guess": "audit"
+    },
+    {
+      "script": "\\src\\audit\\audit_share_grado_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\audit\\audit_share_grado_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:backtest_factor_ml2_share_grado.parquet",
+        "literal:backtest_pred_tallos_grado_dia_ml2_final.parquet",
+        "literal:fact_cosecha_real_grado_dia.parquet",
+        "literal:pred_tallos_grado_dia_ml1_full.parquet",
+        "literal:audit_share_grado_ml2_kpi_global_{STAMP}.parquet",
+        "literal:audit_share_grado_ml2_kpi_by_estado_{STAMP}.parquet",
+        "literal:audit_share_grado_ml2_ratio_dist_{STAMP}.parquet",
+        "literal:audit_share_grado_ml2_sanity_{STAMP}.parquet",
+        "literal:audit_share_grado_ml2_examples_10x2_{STAMP}.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\audit\\audit_tallos_curve_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\audit\\audit_tallos_curve_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:backtest_factor_ml2_tallos_curve_dia.parquet",
+        "literal:fact_ciclo_maestro.parquet",
+        "literal:audit_tallos_curve_ml2_kpi_global_{datetime.now():%Y%m%d_%H%M%S}.parquet",
+        "literal:audit_tallos_curve_ml2_kpi_by_estado_{datetime.now():%Y%m%d_%H%M%S}.parquet",
+        "literal:audit_tallos_curve_ml2_adjust_dist_{datetime.now():%Y%m%d_%H%M%S}.parquet",
+        "literal:audit_tallos_curve_ml2_examples_10x2_{datetime.now():%Y%m%d_%H%M%S}.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\audit\\audit_universe_harvest_grid_ml1.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\audit\\audit_universe_harvest_grid_ml1.py",
+      "inputs": [
+        "data/gold/universe_harvest_grid_ml1.parquet"
+      ],
+      "outputs": [
+        "data/audit/audit_universe_harvest_grid_ml1_summary.json"
+      ],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "dump(<dynamic>)",
+        "literal:data/audit/audit_universe_harvest_grid_ml1_checks.parquet"
+      ],
+      "stage_guess": "audit"
+    },
+    {
+      "script": "\\src\\bronze\\build_balanza_1c_raw.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\bronze\\build_balanza_1c_raw.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "literal:Config: define sources.sql_user y sources.sql_password en settings.yaml",
+        "literal:balanza_1c_raw.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\bronze\\build_balanza_cosecha_raw.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\bronze\\build_balanza_cosecha_raw.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "literal:Config: define sources.sql_user y sources.sql_password en settings.yaml",
+        "literal:balanza_cosecha_raw.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\bronze\\build_balanza_mermas_sources.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\bronze\\build_balanza_mermas_sources.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "literal:Config: define sources.sql_server y sources.sql_db en settings.yaml",
+        "literal:Config: define sources.sql_user y sources.sql_password en settings.yaml",
+        "literal:balanza_2a_raw.parquet",
+        "literal:balanza_2_raw.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\bronze\\build_conteo_tallos_alturas_gyp2419_raw.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\bronze\\build_conteo_tallos_alturas_gyp2419_raw.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "literal:conteo_tallos_alturas_gyp2419_raw.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\bronze\\build_fenograma_raw.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\bronze\\build_fenograma_raw.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\bronze\\build_fenograma_sources.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\bronze\\build_fenograma_sources.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "read_excel(<dynamic>)",
+        "read_excel(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "literal:fenograma_xlsm_raw.parquet",
+        "literal:indices_xl_raw.parquet",
+        "literal:indices_clo_raw.parquet",
+        "literal:balanza_bloque_fecha_raw.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\bronze\\build_ghu_maestro_horas.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\bronze\\build_ghu_maestro_horas.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "literal:Config: define sources.sql_server en settings.yaml",
+        "literal:Config: define sources.sql_user y sources.sql_password en settings.yaml",
+        "literal:ghu_maestro_horas.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\bronze\\build_personal_sources.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\bronze\\build_personal_sources.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "literal:Config: define sources.sql_server en settings.yaml",
+        "literal:Config: define sources.sql_user y sources.sql_password en settings.yaml",
+        "literal:personal_raw.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\bronze\\build_ventas_sources.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\bronze\\build_ventas_sources.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "read_excel(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "literal:{tag}_raw.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\bronze\\build_weather_hour_a4.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\bronze\\build_weather_hour_a4.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "literal:Config: define sources.sql_server en settings.yaml",
+        "literal:Config: define sources.sql_user y sources.sql_password en settings.yaml",
+        "literal:weather_hour_a4.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\bronze\\build_weather_hour_main.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\bronze\\build_weather_hour_main.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "literal:Config: define sources.sql_server en settings.yaml",
+        "literal:Config: define sources.sql_user y sources.sql_password en settings.yaml",
+        "literal:weather_hour_main.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\common\\ids.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\common\\ids.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\common\\io.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\common\\io.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "read_parquet(<dynamic>)",
+        "to_parquet(<dynamic>)",
+        "read_excel(<dynamic>)"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\common\\timegrid.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\common\\timegrid.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\eval\\build_kpis_ajuste_poscosecha_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\eval\\build_kpis_ajuste_poscosecha_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_poscosecha_ml2_ajuste_grado_dia_bloque_destino_final.parquet",
+        "literal:dim_mermas_ajuste_fecha_post_destino.parquet",
+        "literal:ml2_ajuste_poscosecha_eval_global.parquet",
+        "literal:ml2_ajuste_poscosecha_eval_by_destino.parquet",
+        "literal:ml2_ajuste_poscosecha_eval_ratio_dist.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\eval\\build_kpis_desp_poscosecha_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\eval\\build_kpis_desp_poscosecha_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_poscosecha_ml2_desp_grado_dia_bloque_destino_final.parquet",
+        "literal:dim_mermas_ajuste_fecha_post_destino.parquet",
+        "literal:ml2_desp_poscosecha_eval_global.parquet",
+        "literal:ml2_desp_poscosecha_eval_by_destino.parquet",
+        "literal:ml2_desp_poscosecha_eval_ratio_dist.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\eval\\build_kpis_dh_poscosecha_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\eval\\build_kpis_dh_poscosecha_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_poscosecha_ml2_dh_grado_dia_bloque_destino_final.parquet",
+        "literal:fact_hidratacion_real_post_grado_destino.parquet",
+        "literal:ml2_dh_poscosecha_eval_global.parquet",
+        "literal:ml2_dh_poscosecha_eval_by_destino.parquet",
+        "literal:ml2_dh_poscosecha_eval_by_grado.parquet",
+        "literal:ml2_dh_poscosecha_eval_delta_dist.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\eval\\build_kpis_harvest_horizon_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\eval\\build_kpis_harvest_horizon_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:fact_ciclo_maestro.parquet",
+        "literal:pred_harvest_horizon_final_ml2.parquet",
+        "literal:backtest_pred_harvest_horizon_final_ml2.parquet",
+        "literal:ml2_harvest_horizon_eval_prod.parquet",
+        "literal:ml2_harvest_horizon_eval_backtest.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\eval\\build_kpis_harvest_start_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\eval\\build_kpis_harvest_start_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:fact_ciclo_maestro.parquet",
+        "literal:backtest_pred_harvest_start_final_ml2.parquet",
+        "literal:ml2_harvest_start_eval.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\eval\\build_kpis_hidr_poscosecha_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\eval\\build_kpis_hidr_poscosecha_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_poscosecha_ml2_hidr_grado_dia_bloque_destino_final.parquet",
+        "literal:fact_hidratacion_real_post_grado_destino.parquet",
+        "literal:ml2_hidr_poscosecha_eval_global.parquet",
+        "literal:ml2_hidr_poscosecha_eval_by_destino.parquet",
+        "literal:ml2_hidr_poscosecha_eval_by_grado.parquet",
+        "literal:ml2_hidr_poscosecha_eval_ratio_dist.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\eval\\build_kpis_peso_tallo_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\eval\\build_kpis_peso_tallo_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:backtest_factor_ml2_peso_tallo_grado_dia.parquet",
+        "literal:fact_cosecha_real_grado_dia.parquet",
+        "literal:ml2_peso_tallo_eval_global.parquet",
+        "literal:ml2_peso_tallo_eval_by_estado.parquet",
+        "literal:ml2_peso_tallo_eval_ratio_dist.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\eval\\build_kpis_poscosecha_ml2_baseline.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\eval\\build_kpis_poscosecha_ml2_baseline.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_poscosecha_ml2_full_grado_dia_bloque_destino.parquet",
+        "literal:fact_hidratacion_real_post_grado_destino.parquet",
+        "literal:dim_mermas_ajuste_fecha_post_destino.parquet",
+        "literal:ml2_poscosecha_baseline_eval_global.parquet",
+        "literal:ml2_poscosecha_baseline_eval_by_destino.parquet",
+        "literal:ml2_poscosecha_baseline_eval_by_grado.parquet",
+        "literal:ml2_poscosecha_baseline_eval_coverage.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\eval\\build_kpis_share_grado_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\eval\\build_kpis_share_grado_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:backtest_factor_ml2_share_grado.parquet",
+        "literal:backtest_pred_tallos_grado_dia_ml2_final.parquet",
+        "literal:fact_cosecha_real_grado_dia.parquet",
+        "literal:pred_tallos_grado_dia_ml1_full.parquet",
+        "literal:ml2_share_grado_eval_global.parquet",
+        "literal:ml2_share_grado_eval_by_grado.parquet",
+        "literal:ml2_share_grado_eval_sanity.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\eval\\build_kpis_tallos_curve_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\eval\\build_kpis_tallos_curve_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:backtest_factor_ml2_tallos_curve_dia.parquet",
+        "literal:fact_ciclo_maestro.parquet",
+        "literal:ml2_tallos_curve_eval_global.parquet",
+        "literal:ml2_tallos_curve_eval_by_group.parquet",
+        "literal:ml2_tallos_curve_eval_ratio_dist.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\features\\build_cap_tallos_real_dia.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\features\\build_cap_tallos_real_dia.py",
+      "inputs": [
+        "data/features/features_curva_cosecha_bloque_dia.parquet",
+        "data/silver/dim_cosecha_progress_bloque_fecha.parquet",
+        "data/silver/dim_variedad_canon.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "literal:data/gold/dim_cap_tallos_real_dia.parquet"
+      ],
+      "stage_guess": "silver"
+    },
+    {
+      "script": "\\src\\features\\build_features_ciclo_fecha.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\features\\build_features_ciclo_fecha.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "literal:fact_ciclo_maestro.parquet",
+        "literal:grid_ciclo_fecha.parquet",
+        "literal:fact_milestones_ciclo.parquet",
+        "literal:milestone_window_ciclo_final.parquet",
+        "literal:features_ciclo_fecha.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\features\\build_features_cosecha_bloque_fecha.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\features\\build_features_cosecha_bloque_fecha.py",
+      "inputs": [
+        "data/gold/universe_harvest_grid_ml1.parquet",
+        "data/silver/dim_clima_bloque_dia.parquet",
+        "data/silver/dim_cosecha_progress_bloque_fecha.parquet",
+        "data/silver/dim_dist_grado_baseline.parquet",
+        "data/silver/dim_estado_termico_cultivo_bloque_fecha.parquet",
+        "data/silver/dim_peso_tallo_baseline.parquet",
+        "data/silver/dim_variedad_canon.parquet",
+        "data/silver/fact_ciclo_maestro.parquet",
+        "data/silver/fact_cosecha_real_grado_dia.parquet",
+        "data/silver/fact_peso_tallo_real_grado_dia.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "literal:data/features/features_cosecha_bloque_fecha.parquet"
+      ],
+      "stage_guess": "gold"
+    },
+    {
+      "script": "\\src\\features\\build_features_curva_cosecha_bloque_dia.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\features\\build_features_curva_cosecha_bloque_dia.py",
+      "inputs": [
+        "data/gold/universe_harvest_grid_ml1.parquet",
+        "data/silver/dim_clima_bloque_dia.parquet",
+        "data/silver/dim_cosecha_progress_bloque_fecha.parquet",
+        "data/silver/dim_estado_termico_cultivo_bloque_fecha.parquet",
+        "data/silver/dim_variedad_canon.parquet",
+        "data/silver/fact_ciclo_maestro.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "literal:data/features/features_curva_cosecha_bloque_dia.parquet"
+      ],
+      "stage_guess": "gold"
+    },
+    {
+      "script": "\\src\\features\\build_features_harvest_window_ml1.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\features\\build_features_harvest_window_ml1.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:fact_ciclo_maestro.parquet",
+        "literal:features_harvest_window_ml1.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\features\\build_features_peso_tallo_grado_bloque_dia.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\features\\build_features_peso_tallo_grado_bloque_dia.py",
+      "inputs": [
+        "data/features/features_cosecha_bloque_fecha.parquet",
+        "data/gold/pred_dist_grado_ml1.parquet",
+        "data/gold/universe_harvest_grid_ml1.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "literal:data/features/features_peso_tallo_grado_bloque_dia.parquet"
+      ],
+      "stage_guess": "gold"
+    },
+    {
+      "script": "\\src\\features\\build_targets_curva_beta_multiplier_dia.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\features\\build_targets_curva_beta_multiplier_dia.py",
+      "inputs": [
+        "data/features/features_curva_cosecha_bloque_dia.parquet",
+        "data/features/trainset_curva_beta_params.parquet",
+        "data/gold/universe_harvest_grid_ml1.parquet",
+        "data/silver/dim_cosecha_progress_bloque_fecha.parquet",
+        "data/silver/dim_variedad_canon.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "literal:data/features/trainset_curva_beta_multiplier_dia.parquet"
+      ],
+      "stage_guess": "gold"
+    },
+    {
+      "script": "\\src\\features\\build_targets_curva_beta_params.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\features\\build_targets_curva_beta_params.py",
+      "inputs": [
+        "data/features/features_curva_cosecha_bloque_dia.parquet",
+        "data/gold/universe_harvest_grid_ml1.parquet",
+        "data/silver/dim_cosecha_progress_bloque_fecha.parquet",
+        "data/silver/dim_variedad_canon.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "open(<dynamic>)",
+        "dump(<dynamic>)",
+        "literal:data/features/trainset_curva_beta_params.parquet",
+        "literal:data/features/_debug_panel_beta_params.parquet",
+        "literal:.fitmeta.json"
+      ],
+      "stage_guess": "gold"
+    },
+    {
+      "script": "\\src\\gold\\apply_desp_ajuste_poscosecha_ml1_on_ml2_hidr.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\gold\\apply_desp_ajuste_poscosecha_ml1_on_ml2_hidr.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "load(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "open(<dynamic>)",
+        "load(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_poscosecha_ml2_hidr_grado_dia_bloque_destino.parquet",
+        "literal:pred_poscosecha_ml2_full_grado_dia_bloque_destino.parquet",
+        "literal:metrics.json",
+        "literal:model.joblib"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\gold\\apply_dh_poscosecha_ml1_on_ml2_seed.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\gold\\apply_dh_poscosecha_ml1_on_ml2_seed.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "load(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "open(<dynamic>)",
+        "load(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_poscosecha_ml2_seed_grado_dia_bloque_destino.parquet",
+        "literal:pred_poscosecha_ml2_dh_grado_dia_bloque_destino.parquet",
+        "literal:metrics.json",
+        "literal:model.joblib"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\gold\\apply_hidr_poscosecha_ml1_on_ml2_dh.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\gold\\apply_hidr_poscosecha_ml1_on_ml2_dh.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "load(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "open(<dynamic>)",
+        "load(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_poscosecha_ml2_dh_grado_dia_bloque_destino.parquet",
+        "literal:pred_poscosecha_ml2_hidr_grado_dia_bloque_destino.parquet",
+        "literal:metrics.json",
+        "literal:model.joblib"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\gold\\build_ds_ajuste_poscosecha_ml2_v1.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\gold\\build_ds_ajuste_poscosecha_ml2_v1.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_poscosecha_ml2_desp_grado_dia_bloque_destino_final.parquet",
+        "literal:dim_mermas_ajuste_fecha_post_destino.parquet",
+        "literal:ds_ajuste_poscosecha_ml2_v1.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\gold\\build_ds_desp_poscosecha_ml2_v1.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\gold\\build_ds_desp_poscosecha_ml2_v1.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_poscosecha_ml2_hidr_grado_dia_bloque_destino_final.parquet",
+        "literal:dim_mermas_ajuste_fecha_post_destino.parquet",
+        "literal:ds_desp_poscosecha_ml2_v1.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\gold\\build_ds_dh_poscosecha_ml2_v1.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\gold\\build_ds_dh_poscosecha_ml2_v1.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_poscosecha_ml2_seed_grado_dia_bloque_destino.parquet",
+        "literal:pred_poscosecha_ml2_dh_grado_dia_bloque_destino.parquet",
+        "literal:fact_hidratacion_real_post_grado_destino.parquet",
+        "literal:ds_dh_poscosecha_ml2_v1.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\gold\\build_ds_harvest_horizon_ml2_v2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\gold\\build_ds_harvest_horizon_ml2_v2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:fact_ciclo_maestro.parquet",
+        "literal:universe_harvest_grid_ml1.parquet",
+        "literal:dim_clima_bloque_dia.parquet",
+        "literal:factor_ml2_harvest_start.parquet",
+        "literal:ds_harvest_horizon_ml2_v2.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\gold\\build_ds_harvest_start_ml2_v2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\gold\\build_ds_harvest_start_ml2_v2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:fact_ciclo_maestro.parquet",
+        "literal:universe_harvest_grid_ml1.parquet",
+        "literal:dim_clima_bloque_dia.parquet",
+        "literal:ds_harvest_start_ml2_v2.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\gold\\build_ds_hidr_poscosecha_ml2_v1.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\gold\\build_ds_hidr_poscosecha_ml2_v1.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_poscosecha_ml2_full_grado_dia_bloque_destino.parquet",
+        "literal:pred_poscosecha_ml2_dh_grado_dia_bloque_destino_final.parquet",
+        "literal:fact_hidratacion_real_post_grado_destino.parquet",
+        "literal:ds_hidr_poscosecha_ml2_v1.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\gold\\build_ds_peso_tallo_ml2_v1.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\gold\\build_ds_peso_tallo_ml2_v1.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:universe_harvest_grid_ml2.parquet",
+        "literal:dim_clima_bloque_dia.parquet",
+        "literal:pred_peso_tallo_grado_ml1.parquet",
+        "literal:pred_peso_tallo_grado_ml1_full.parquet",
+        "literal:fact_peso_tallo_real_grado_dia.parquet",
+        "literal:fact_kg_real_grado_dia.parquet",
+        "literal:fact_cosecha_real_grado_dia.parquet",
+        "literal:ds_peso_tallo_ml2_v1.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\gold\\build_ds_share_grado_ml2_v1.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\gold\\build_ds_share_grado_ml2_v1.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:universe_harvest_grid_ml2.parquet",
+        "literal:pred_tallos_grado_dia_ml1_full.parquet",
+        "literal:fact_cosecha_real_grado_dia.parquet",
+        "literal:dim_clima_bloque_dia.parquet",
+        "literal:ds_share_grado_ml2_v1.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\gold\\build_ds_tallos_curve_ml2_v2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\gold\\build_ds_tallos_curve_ml2_v2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:universe_harvest_grid_ml2.parquet",
+        "literal:fact_cosecha_real_grado_dia.parquet",
+        "literal:pred_tallos_grado_dia_ml1_full.parquet",
+        "literal:dim_clima_bloque_dia.parquet",
+        "literal:ds_tallos_curve_ml2_v2.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\gold\\build_pred_cajas_postcosecha_seed_mix_grado_dia.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\gold\\build_pred_cajas_postcosecha_seed_mix_grado_dia.py",
+      "inputs": [
+        "data/gold/pred_cajas_grado_dia_ml1_full.parquet",
+        "data/silver/dim_dh_baseline_grado_destino.parquet",
+        "data/silver/dim_hidratacion_fecha_cosecha_grado_destino.parquet",
+        "data/silver/dim_mermas_ajuste_fecha_post_destino.parquet",
+        "data/silver/dim_mix_proceso_semana.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "literal:data/gold/pred_poscosecha_seed_grado_dia_bloque_destino.parquet",
+        "literal:data/gold/pred_poscosecha_seed_dia_destino.parquet",
+        "literal:data/gold/pred_poscosecha_seed_dia_total.parquet"
+      ],
+      "stage_guess": "gold"
+    },
+    {
+      "script": "\\src\\gold\\build_pred_kg_cajas_grado_dia_ml1_full.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\gold\\build_pred_kg_cajas_grado_dia_ml1_full.py",
+      "inputs": [
+        "data/gold/pred_peso_tallo_grado_ml1.parquet",
+        "data/gold/pred_tallos_grado_dia_ml1_full.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "literal:data/gold/pred_kg_grado_dia_ml1_full.parquet",
+        "literal:data/gold/pred_cajas_grado_dia_ml1_full.parquet",
+        "literal:data/gold/pred_cajas_dia_ml1_full.parquet",
+        "literal:data/gold/pred_kg_grado_dia_ml1_agg.parquet",
+        "literal:data/gold/pred_cajas_grado_dia_ml1_agg.parquet"
+      ],
+      "stage_guess": "gold"
+    },
+    {
+      "script": "\\src\\gold\\build_pred_kg_cajas_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\gold\\build_pred_kg_cajas_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:backtest_pred_tallos_grado_dia_ml2_final.parquet",
+        "literal:backtest_pred_peso_tallo_grado_dia_ml2_final.parquet",
+        "literal:pred_tallos_grado_dia_ml2_full.parquet",
+        "literal:pred_peso_tallo_grado_dia_ml2_full.parquet",
+        "literal:pred_kg_grado_dia_ml1_full.parquet",
+        "literal:pred_cajas_grado_dia_ml1_full.parquet",
+        "literal:pred_kg_grado_dia_ml2_full.parquet",
+        "literal:pred_kg_dia_ml2_full.parquet",
+        "literal:pred_cajas_grado_dia_ml2_full.parquet",
+        "literal:pred_cajas_dia_ml2_full.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\gold\\build_pred_poscosecha_ml1_views.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\gold\\build_pred_poscosecha_ml1_views.py",
+      "inputs": [
+        "data/gold/pred_poscosecha_ml1_full_grado_dia_bloque_destino.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "literal:data/gold/pred_poscosecha_ml1_dia_bloque_destino.parquet",
+        "literal:data/gold/pred_poscosecha_ml1_dia_destino.parquet",
+        "literal:data/gold/pred_poscosecha_ml1_dia_total.parquet"
+      ],
+      "stage_guess": "gold"
+    },
+    {
+      "script": "\\src\\gold\\build_pred_poscosecha_ml2_final_views.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\gold\\build_pred_poscosecha_ml2_final_views.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_poscosecha_ml2_ajuste_grado_dia_bloque_destino_final.parquet",
+        "literal:pred_poscosecha_ml2_final_full_grado_dia_bloque_destino.parquet",
+        "literal:pred_poscosecha_ml2_final_dia_bloque_destino.parquet",
+        "literal:pred_poscosecha_ml2_final_dia_destino.parquet",
+        "literal:pred_poscosecha_ml2_final_dia_total.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\gold\\build_pred_poscosecha_ml2_seed_mix_grado_dia.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\gold\\build_pred_poscosecha_ml2_seed_mix_grado_dia.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_cajas_grado_dia_ml2_full.parquet",
+        "literal:dim_mix_proceso_semana.parquet",
+        "literal:pred_poscosecha_ml2_seed_grado_dia_bloque_destino.parquet",
+        "literal:pred_poscosecha_ml2_seed_dia_destino.parquet",
+        "literal:pred_poscosecha_ml2_seed_dia_total.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\gold\\build_pred_poscosecha_ml2_views_from_full.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\gold\\build_pred_poscosecha_ml2_views_from_full.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_poscosecha_ml2_full_grado_dia_bloque_destino.parquet",
+        "literal:pred_poscosecha_ml2_ml1_dia_bloque_destino.parquet",
+        "literal:pred_poscosecha_ml2_ml1_dia_destino.parquet",
+        "literal:pred_poscosecha_ml2_ml1_dia_total.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\gold\\build_pred_tallos_grado_dia_ml1.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\gold\\build_pred_tallos_grado_dia_ml1.py",
+      "inputs": [
+        "data/features/features_curva_cosecha_bloque_dia.parquet",
+        "data/gold/pred_dist_grado_ml1.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "literal:data/gold/pred_tallos_grado_dia_ml1.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\gold\\build_pred_tallos_grado_dia_ml1_full.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\gold\\build_pred_tallos_grado_dia_ml1_full.py",
+      "inputs": [
+        "data/gold/pred_dist_grado_ml1.parquet",
+        "data/gold/pred_factor_curva_ml1.parquet",
+        "data/gold/universe_harvest_grid_ml1.parquet",
+        "data/silver/dim_variedad_canon.parquet",
+        "data/silver/fact_ciclo_maestro.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "literal:data/gold/pred_tallos_grado_dia_ml1_full.parquet"
+      ],
+      "stage_guess": "gold"
+    },
+    {
+      "script": "\\src\\gold\\build_pred_tallos_ml2_full.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\gold\\build_pred_tallos_ml2_full.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:backtest_pred_tallos_grado_dia_ml2_final.parquet",
+        "literal:pred_tallos_grado_dia_ml2_full.parquet",
+        "literal:pred_tallos_dia_ml2_full.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\gold\\build_universe_harvest_grid_ml1.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\gold\\build_universe_harvest_grid_ml1.py",
+      "inputs": [
+        "data/gold/pred_harvest_window_ml1.parquet",
+        "data/silver/fact_ciclo_maestro.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "literal:data/gold/universe_harvest_grid_ml1.parquet"
+      ],
+      "stage_guess": "gold"
+    },
+    {
+      "script": "\\src\\gold\\build_universe_harvest_grid_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\gold\\build_universe_harvest_grid_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:universe_harvest_grid_ml1.parquet",
+        "literal:pred_harvest_start_final_ml2.parquet",
+        "literal:pred_harvest_horizon_final_ml2.parquet",
+        "literal:universe_harvest_grid_ml2.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\gold\\build_view_planificacion_campo_tallos.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\gold\\build_view_planificacion_campo_tallos.py",
+      "inputs": [
+        "data/gold/pred_tallos_grado_dia_ml1_full.parquet",
+        "data/silver/fact_ciclo_maestro.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "literal:data/gold/view_planificacion_campo_tallos_dia.parquet",
+        "literal:data/gold/view_planificacion_campo_tallos_semana.parquet",
+        "literal:data/gold/view_planificacion_campo_tallos_semana_bloque.parquet",
+        "literal:data/gold/view_planificacion_campo_tallos_semana_area.parquet"
+      ],
+      "stage_guess": "gold"
+    },
+    {
+      "script": "\\src\\gold\\postprocess_curva_share_smooth_ml1.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\gold\\postprocess_curva_share_smooth_ml1.py",
+      "inputs": [
+        "data/features/features_curva_cosecha_bloque_dia.parquet",
+        "data/gold/pred_factor_curva_ml1.parquet",
+        "data/gold/universe_harvest_grid_ml1.parquet",
+        "data/silver/dim_cosecha_progress_bloque_fecha.parquet",
+        "data/silver/dim_variedad_canon.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)"
+      ],
+      "stage_guess": "gold"
+    },
+    {
+      "script": "\\src\\models\\ml1\\apply_curva_beta_params.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml1\\apply_curva_beta_params.py",
+      "inputs": [
+        "data/features/features_curva_cosecha_bloque_dia.parquet",
+        "data/gold/dim_cap_tallos_real_dia.parquet",
+        "data/gold/universe_harvest_grid_ml1.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "load(<dynamic>)",
+        "load(<dynamic>)",
+        "load(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "open(<dynamic>)",
+        "load(<dynamic>)",
+        "open(<dynamic>)",
+        "load(<dynamic>)",
+        "literal:data/gold/pred_factor_curva_ml1.parquet",
+        "literal:metrics.json",
+        "literal:model_alpha.joblib",
+        "literal:model_beta.joblib",
+        "literal:model_log_mult.joblib"
+      ],
+      "stage_guess": "gold"
+    },
+    {
+      "script": "\\src\\models\\ml1\\apply_curva_cdf_dia.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml1\\apply_curva_cdf_dia.py",
+      "inputs": [
+        "data/features/features_curva_cosecha_bloque_dia.parquet",
+        "data/gold/universe_harvest_grid_ml1.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "load(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "open(<dynamic>)",
+        "load(<dynamic>)",
+        "literal:data/gold/pred_factor_curva_ml1.parquet",
+        "literal:metrics.json",
+        "literal:model_curva_cdf_dia.joblib"
+      ],
+      "stage_guess": "gold"
+    },
+    {
+      "script": "\\src\\models\\ml1\\apply_curva_share_dia.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml1\\apply_curva_share_dia.py",
+      "inputs": [
+        "data/features/features_curva_cosecha_bloque_dia.parquet",
+        "data/gold/universe_harvest_grid_ml1.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "load(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "open(<dynamic>)",
+        "load(<dynamic>)",
+        "literal:data/gold/pred_factor_curva_ml1.parquet",
+        "literal:cap_floor_share_by_relpos.parquet",
+        "literal:cap_floor_share_by_relpos_global.parquet",
+        "literal:metrics.json",
+        "literal:model_curva_share_dia.joblib"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml1\\apply_curva_tallos_dia.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml1\\apply_curva_tallos_dia.py",
+      "inputs": [
+        "data/features/features_curva_cosecha_bloque_dia.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "load(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "open(<dynamic>)",
+        "load(<dynamic>)",
+        "literal:data/gold/pred_factor_curva_ml1.parquet",
+        "literal:metrics.json",
+        "literal:model_curva_tallos_dia.joblib"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml1\\apply_desp_ajuste_poscosecha_ml1.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml1\\apply_desp_ajuste_poscosecha_ml1.py",
+      "inputs": [
+        "data/gold/pred_poscosecha_ml1_hidr_grado_dia_bloque_destino.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "load(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "open(<dynamic>)",
+        "load(<dynamic>)",
+        "literal:data/gold/pred_poscosecha_ml1_full_grado_dia_bloque_destino.parquet",
+        "literal:metrics.json",
+        "literal:model.joblib"
+      ],
+      "stage_guess": "gold"
+    },
+    {
+      "script": "\\src\\models\\ml1\\apply_dh_poscosecha_ml1.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml1\\apply_dh_poscosecha_ml1.py",
+      "inputs": [
+        "data/gold/pred_poscosecha_seed_grado_dia_bloque_destino.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "load(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "open(<dynamic>)",
+        "load(<dynamic>)",
+        "literal:data/gold/pred_poscosecha_ml1_dh_grado_dia_bloque_destino.parquet",
+        "literal:metrics.json",
+        "literal:model.joblib"
+      ],
+      "stage_guess": "gold"
+    },
+    {
+      "script": "\\src\\models\\ml1\\apply_dist_grado.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml1\\apply_dist_grado.py",
+      "inputs": [
+        "data/features/features_cosecha_bloque_fecha.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "open(<dynamic>)",
+        "load(<dynamic>)",
+        "load(<dynamic>)",
+        "literal:data/gold/pred_dist_grado_ml1.parquet",
+        "literal:metrics.json",
+        "literal:model_grade_{g_int}.joblib"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml1\\apply_harvest_window_ml1.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml1\\apply_harvest_window_ml1.py",
+      "inputs": [
+        "data/features/features_harvest_window_ml1.parquet",
+        "data/silver/dim_mediana_etapas_tipo_sp_variedad_area.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "load(<dynamic>)",
+        "load(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "open(<dynamic>)",
+        "load(<dynamic>)",
+        "literal:data/gold/pred_harvest_window_ml1.parquet",
+        "literal:metrics.json",
+        "literal:model_start_offset.joblib",
+        "literal:model_harvest_days.joblib"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml1\\apply_hidr_poscosecha_ml1.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml1\\apply_hidr_poscosecha_ml1.py",
+      "inputs": [
+        "data/gold/pred_poscosecha_ml1_dh_grado_dia_bloque_destino.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "load(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "open(<dynamic>)",
+        "load(<dynamic>)",
+        "literal:data/gold/pred_poscosecha_ml1_hidr_grado_dia_bloque_destino.parquet",
+        "literal:metrics.json",
+        "literal:model.joblib"
+      ],
+      "stage_guess": "gold"
+    },
+    {
+      "script": "\\src\\models\\ml1\\apply_peso_tallo_grado.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml1\\apply_peso_tallo_grado.py",
+      "inputs": [
+        "data/features/features_peso_tallo_grado_bloque_dia.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "open(<dynamic>)",
+        "load(<dynamic>)",
+        "load(<dynamic>)",
+        "literal:data/gold/pred_peso_tallo_grado_ml1.parquet",
+        "literal:metrics.json",
+        "literal:model_grade_{g}.joblib"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml1\\train_ajuste_poscosecha_ml1.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml1\\train_ajuste_poscosecha_ml1.py",
+      "inputs": [
+        "data/silver/dim_mermas_ajuste_fecha_post_destino.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "dump(<dynamic>)",
+        "open(<dynamic>)",
+        "dump(<dynamic>)",
+        "literal:model.joblib",
+        "literal:metrics.json"
+      ],
+      "stage_guess": "silver"
+    },
+    {
+      "script": "\\src\\models\\ml1\\train_curva_beta_multiplier_dia.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml1\\train_curva_beta_multiplier_dia.py",
+      "inputs": [
+        "data/features/trainset_curva_beta_multiplier_dia.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "dump(<dynamic>)",
+        "open(<dynamic>)",
+        "dump(<dynamic>)",
+        "literal:model_log_mult.joblib",
+        "literal:metrics.json"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml1\\train_curva_beta_params.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml1\\train_curva_beta_params.py",
+      "inputs": [
+        "data/features/trainset_curva_beta_params.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "dump(<dynamic>)",
+        "dump(<dynamic>)",
+        "open(<dynamic>)",
+        "dump(<dynamic>)",
+        "literal:model_alpha.joblib",
+        "literal:model_beta.joblib",
+        "literal:metrics.json"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml1\\train_curva_cdf_dia.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml1\\train_curva_cdf_dia.py",
+      "inputs": [
+        "data/features/features_curva_cosecha_bloque_dia.parquet",
+        "data/gold/universe_harvest_grid_ml1.parquet",
+        "data/silver/dim_cosecha_progress_bloque_fecha.parquet",
+        "data/silver/dim_variedad_canon.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "dump(<dynamic>)",
+        "open(<dynamic>)",
+        "dump(<dynamic>)",
+        "literal:model_curva_cdf_dia.joblib",
+        "literal:metrics.json"
+      ],
+      "stage_guess": "silver"
+    },
+    {
+      "script": "\\src\\models\\ml1\\train_curva_share_dia.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml1\\train_curva_share_dia.py",
+      "inputs": [
+        "data/features/features_curva_cosecha_bloque_dia.parquet",
+        "data/gold/universe_harvest_grid_ml1.parquet",
+        "data/silver/dim_cosecha_progress_bloque_fecha.parquet",
+        "data/silver/dim_variedad_canon.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "dump(<dynamic>)",
+        "to_parquet(<dynamic>)",
+        "to_parquet(<dynamic>)",
+        "open(<dynamic>)",
+        "dump(<dynamic>)",
+        "literal:model_curva_share_dia.joblib",
+        "literal:cap_floor_share_by_relpos.parquet",
+        "literal:cap_floor_share_by_relpos_global.parquet",
+        "literal:metrics.json"
+      ],
+      "stage_guess": "silver"
+    },
+    {
+      "script": "\\src\\models\\ml1\\train_curva_tallos_dia.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml1\\train_curva_tallos_dia.py",
+      "inputs": [
+        "data/features/features_curva_cosecha_bloque_dia.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "dump(<dynamic>)",
+        "open(<dynamic>)",
+        "dump(<dynamic>)",
+        "literal:model_curva_tallos_dia.joblib",
+        "literal:metrics.json"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml1\\train_desp_poscosecha_ml1.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml1\\train_desp_poscosecha_ml1.py",
+      "inputs": [
+        "data/silver/dim_mermas_ajuste_fecha_post_destino.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "dump(<dynamic>)",
+        "open(<dynamic>)",
+        "dump(<dynamic>)",
+        "literal:model.joblib",
+        "literal:metrics.json"
+      ],
+      "stage_guess": "silver"
+    },
+    {
+      "script": "\\src\\models\\ml1\\train_dh_poscosecha_ml1.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml1\\train_dh_poscosecha_ml1.py",
+      "inputs": [
+        "data/silver/fact_hidratacion_real_post_grado_destino.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "dump(<dynamic>)",
+        "open(<dynamic>)",
+        "dump(<dynamic>)",
+        "literal:model.joblib",
+        "literal:metrics.json"
+      ],
+      "stage_guess": "silver"
+    },
+    {
+      "script": "\\src\\models\\ml1\\train_dist_grado.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml1\\train_dist_grado.py",
+      "inputs": [
+        "data/features/features_cosecha_bloque_fecha.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "dump(<dynamic>)",
+        "open(<dynamic>)",
+        "dump(<dynamic>)",
+        "literal:model_grade_{str(int(g))}.joblib",
+        "literal:metrics.json"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml1\\train_harvest_window_ml1.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml1\\train_harvest_window_ml1.py",
+      "inputs": [
+        "data/features/features_harvest_window_ml1.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "dump(<dynamic>)",
+        "dump(<dynamic>)",
+        "open(<dynamic>)",
+        "dump(<dynamic>)",
+        "literal:model_start_offset.joblib",
+        "literal:model_harvest_days.joblib",
+        "literal:metrics.json"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml1\\train_hidr_poscosecha_ml1.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml1\\train_hidr_poscosecha_ml1.py",
+      "inputs": [
+        "data/silver/fact_hidratacion_real_post_grado_destino.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "dump(<dynamic>)",
+        "open(<dynamic>)",
+        "dump(<dynamic>)",
+        "literal:model.joblib",
+        "literal:metrics.json"
+      ],
+      "stage_guess": "silver"
+    },
+    {
+      "script": "\\src\\models\\ml1\\train_peso_tallo_grado.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml1\\train_peso_tallo_grado.py",
+      "inputs": [
+        "data/features/features_peso_tallo_grado_bloque_dia.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "dump(<dynamic>)",
+        "open(<dynamic>)",
+        "dump(<dynamic>)",
+        "open(<dynamic>)",
+        "dump(<dynamic>)",
+        "dump(<dynamic>)",
+        "open(<dynamic>)",
+        "dump(<dynamic>)",
+        "dump(<dynamic>)",
+        "dump(<dynamic>)",
+        "dump(<dynamic>)",
+        "literal:metrics.json",
+        "literal:[WARN] No hay grados en features. OK -> {out_dir}/metrics.json",
+        "literal:model_grade_{g}.joblib"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml2\\apply_ajuste_poscosecha_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml2\\apply_ajuste_poscosecha_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "load(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "open(<dynamic>)",
+        "load(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_poscosecha_ml2_desp_grado_dia_bloque_destino_final.parquet",
+        "literal:pred_poscosecha_ml2_ajuste_grado_dia_bloque_destino_final.parquet",
+        "literal:backtest_factor_ml2_ajuste_poscosecha.parquet",
+        "literal:{prefix}*.pkl",
+        "literal:_meta.json"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml2\\apply_desp_poscosecha_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml2\\apply_desp_poscosecha_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "load(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_poscosecha_ml2_hidr_grado_dia_bloque_destino_final.parquet",
+        "literal:backtest_factor_ml2_desp_poscosecha.parquet",
+        "literal:pred_poscosecha_ml2_desp_grado_dia_bloque_destino_final.parquet",
+        "literal:{prefix}_*.pkl",
+        "literal:No encuentro modelos en {MODELS} con prefijo {prefix}_*.pkl"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml2\\apply_dh_poscosecha_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml2\\apply_dh_poscosecha_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "load(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "open(<dynamic>)",
+        "load(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_poscosecha_ml2_full_grado_dia_bloque_destino.parquet",
+        "literal:backtest_factor_ml2_dh_poscosecha.parquet",
+        "literal:pred_poscosecha_ml2_dh_grado_dia_bloque_destino_final.parquet",
+        "literal:{prefix}_*.pkl",
+        "literal:No hay modelos en {MODELS} con prefijo {prefix}_*.pkl",
+        "literal:_meta.json"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml2\\apply_harvest_horizon_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml2\\apply_harvest_horizon_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "load(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:fact_ciclo_maestro.parquet",
+        "literal:universe_harvest_grid_ml1.parquet",
+        "literal:dim_clima_bloque_dia.parquet",
+        "literal:pred_harvest_start_final_ml2.parquet",
+        "literal:factor_ml2_harvest_start.parquet",
+        "literal:backtest_pred_harvest_start_final_ml2.parquet",
+        "literal:backtest_factor_ml2_harvest_start.parquet",
+        "literal:factor_ml2_harvest_horizon.parquet",
+        "literal:pred_harvest_horizon_final_ml2.parquet",
+        "literal:backtest_factor_ml2_harvest_horizon.parquet",
+        "literal:backtest_pred_harvest_horizon_final_ml2.parquet",
+        "literal:harvest_horizon_ml2_*_meta.json",
+        "literal:]}.pkl"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml2\\apply_harvest_start_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml2\\apply_harvest_start_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "load(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:fact_ciclo_maestro.parquet",
+        "literal:universe_harvest_grid_ml1.parquet",
+        "literal:dim_clima_bloque_dia.parquet",
+        "literal:factor_ml2_harvest_start.parquet",
+        "literal:pred_harvest_start_final_ml2.parquet",
+        "literal:backtest_factor_ml2_harvest_start.parquet",
+        "literal:backtest_pred_harvest_start_final_ml2.parquet",
+        "literal:harvest_start_ml2_*_meta.json",
+        "literal:]}.pkl"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml2\\apply_hidr_poscosecha_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml2\\apply_hidr_poscosecha_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "load(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "open(<dynamic>)",
+        "load(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_poscosecha_ml2_dh_grado_dia_bloque_destino_final.parquet",
+        "literal:backtest_factor_ml2_hidr_poscosecha.parquet",
+        "literal:pred_poscosecha_ml2_hidr_grado_dia_bloque_destino_final.parquet",
+        "literal:{prefix}_*.pkl",
+        "literal:No hay modelos en {MODELS} con prefijo {prefix}_*.pkl",
+        "literal:_meta.json"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml2\\apply_peso_tallo_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml2\\apply_peso_tallo_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "load(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:ds_peso_tallo_ml2_v1.parquet",
+        "literal:factor_ml2_peso_tallo_grado_dia.parquet",
+        "literal:pred_peso_tallo_grado_dia_ml2_final.parquet",
+        "literal:backtest_factor_ml2_peso_tallo_grado_dia.parquet",
+        "literal:backtest_pred_peso_tallo_grado_dia_ml2_final.parquet",
+        "literal:peso_tallo_ml2_*_meta.json",
+        "literal:]}.pkl"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml2\\apply_share_grado_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml2\\apply_share_grado_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "load(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:ds_share_grado_ml2_v1.parquet",
+        "literal:backtest_pred_tallos_dia_ml2_final.parquet",
+        "literal:backtest_factor_ml2_share_grado.parquet",
+        "literal:backtest_pred_tallos_grado_dia_ml2_final.parquet",
+        "literal:factor_ml2_share_grado.parquet",
+        "literal:pred_tallos_grado_dia_ml2_final.parquet",
+        "literal:share_grado_ml2_*_meta.json",
+        "literal:]}.pkl",
+        "literal:No encuentro columna de tallos total en backtest_pred_tallos_dia_ml2_final.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml2\\apply_tallos_curve_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml2\\apply_tallos_curve_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "load(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:universe_harvest_grid_ml2.parquet",
+        "literal:pred_tallos_grado_dia_ml1_full.parquet",
+        "literal:fact_cosecha_real_grado_dia.parquet",
+        "literal:dim_clima_bloque_dia.parquet",
+        "literal:factor_ml2_tallos_curve_dia.parquet",
+        "literal:pred_tallos_dia_ml2_final.parquet",
+        "literal:backtest_factor_ml2_tallos_curve_dia.parquet",
+        "literal:backtest_pred_tallos_dia_ml2_final.parquet",
+        "literal:tallos_curve_ml2_*_meta.json",
+        "literal:]}.pkl"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml2\\train_ajuste_poscosecha_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml2\\train_ajuste_poscosecha_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "dump(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "open(<dynamic>)",
+        "dump(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:ds_ajuste_poscosecha_ml2_v1.parquet",
+        "literal:ajuste_poscosecha_ml2_{ts}_{tag}.pkl",
+        "literal:ajuste_poscosecha_ml2_{ts}_{tag}_meta.json",
+        "literal:ml2_ajuste_poscosecha_train_val.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml2\\train_desp_poscosecha_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml2\\train_desp_poscosecha_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "dump(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "open(<dynamic>)",
+        "dump(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:ds_desp_poscosecha_ml2_v1.parquet",
+        "literal:ml2_desp_poscosecha_train_val.parquet",
+        "literal:desp_poscosecha_ml2_{ts}_{fp}.pkl",
+        "literal:desp_poscosecha_ml2_{ts}_{fp}_meta.json"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml2\\train_dh_poscosecha_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml2\\train_dh_poscosecha_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "dump(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "open(<dynamic>)",
+        "dump(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:ds_dh_poscosecha_ml2_v1.parquet",
+        "literal:{run_id}.pkl",
+        "literal:{run_id}_meta.json",
+        "literal:ml2_dh_poscosecha_train_val.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml2\\train_harvest_horizon_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml2\\train_harvest_horizon_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "dump(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:ds_harvest_horizon_ml2_v2.parquet",
+        "literal:harvest_horizon_ml2_{run_id}.pkl",
+        "literal:harvest_horizon_ml2_{run_id}_meta.json",
+        "literal:ml2_harvest_horizon_train_cv.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml2\\train_harvest_start_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml2\\train_harvest_start_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "dump(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:ds_harvest_start_ml2_v2.parquet",
+        "literal:ml2_harvest_start_train_cv.parquet",
+        "literal:harvest_start_ml2_{run_id}.pkl",
+        "literal:harvest_start_ml2_{run_id}_meta.json"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml2\\train_hidr_poscosecha_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml2\\train_hidr_poscosecha_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "dump(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "open(<dynamic>)",
+        "dump(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:ds_hidr_poscosecha_ml2_v1.parquet",
+        "literal:hidr_poscosecha_ml2_{ts}_{uid}.pkl",
+        "literal:hidr_poscosecha_ml2_{ts}_{uid}_meta.json",
+        "literal:ml2_hidr_poscosecha_train_val.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml2\\train_peso_tallo_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml2\\train_peso_tallo_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "dump(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:ds_peso_tallo_ml2_v1.parquet",
+        "literal:peso_tallo_ml2_{run_id}.pkl",
+        "literal:peso_tallo_ml2_{run_id}_meta.json",
+        "literal:ml2_peso_tallo_train_cv.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml2\\train_share_grado_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml2\\train_share_grado_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "dump(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:ds_share_grado_ml2_v1.parquet",
+        "literal:share_grado_ml2_{run_id}.pkl",
+        "literal:share_grado_ml2_{run_id}_meta.json",
+        "literal:ml2_share_grado_train_cv.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\models\\ml2\\train_tallos_curve_ml2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\models\\ml2\\train_tallos_curve_ml2.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "dump(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:ds_tallos_curve_ml2_v2.parquet",
+        "literal:tallos_curve_ml2_{run_id}.pkl",
+        "literal:tallos_curve_ml2_{run_id}_meta.json",
+        "literal:ml2_tallos_curve_train_cv.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\ops\\io.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\ops\\io.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "literal:config/settings.yaml"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\ops\\registry.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\ops\\registry.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "literal:bronze/balanza_cosecha_raw.parquet",
+        "literal:bronze/balanza_1c_raw.parquet",
+        "literal:bronze/balanza_2_raw.parquet",
+        "literal:bronze/balanza_2a_raw.parquet",
+        "literal:bronze/balanza_bloque_fecha_raw.parquet",
+        "literal:bronze/fenograma_xlsm_raw.parquet",
+        "literal:bronze/indices_clo_raw.parquet",
+        "literal:bronze/indices_xl_raw.parquet",
+        "literal:bronze/ghu_maestro_horas.parquet",
+        "literal:bronze/personal_raw.parquet",
+        "literal:bronze/ventas_2025_raw.parquet",
+        "literal:bronze/ventas_2026_raw.parquet",
+        "literal:bronze/weather_hour_main.parquet",
+        "literal:bronze/weather_hour_a4.parquet",
+        "literal:silver/weather_hour_estado.parquet",
+        "literal:silver/weather_hour_wide.parquet",
+        "literal:silver/fact_ciclo_maestro.parquet",
+        "literal:silver/grid_ciclo_fecha.parquet",
+        "literal:silver/fact_hidratacion_real_post_grado_destino.parquet",
+        "literal:silver/dim_hidratacion_dh_grado_destino.parquet",
+        "literal:silver/dim_hidratacion_fecha_post_grado_destino.parquet",
+        "literal:silver/fact_cosecha_real_grado_dia.parquet",
+        "literal:silver/fact_peso_tallo_real_grado_dia.parquet",
+        "literal:silver/fact_cosecha_uph_hora_clima.parquet",
+        "literal:silver/dim_dist_grado_baseline.parquet",
+        "literal:silver/dim_peso_tallo_baseline.parquet",
+        "literal:silver/dim_peso_tallo_promedio_dia.parquet",
+        "literal:silver/dim_factor_uph_cosecha_clima.parquet",
+        "literal:silver/dim_mermas_ajuste_fecha_post_destino.parquet",
+        "literal:silver/dim_dh_baseline_grado_destino.parquet",
+        "literal:silver/dim_hidratacion_fecha_cosecha_grado_destino.parquet",
+        "literal:silver/dim_hidratacion_baseline_grado_destino.parquet",
+        "literal:silver/dim_variedad_canon.parquet",
+        "literal:silver/dim_clima_bloque_dia.parquet",
+        "literal:silver/dim_estado_termico_cultivo_bloque_fecha.parquet",
+        "literal:silver/dim_mix_proceso_semana.parquet",
+        "literal:silver/fact_capacidad_proceso_hist.parquet",
+        "literal:silver/dim_capacidad_baseline_proceso.parquet",
+        "literal:silver/dim_baseline_capacidad_tallos_h_persona.parquet",
+        "literal:silver/dim_capacidad_baseline_tallos_proceso.parquet",
+        "literal:silver/fact_capacidad_tallos_proceso_hist.parquet",
+        "literal:silver/fact_milestones_ciclo.parquet",
+        "literal:silver/milestone_window_ciclo.parquet",
+        "literal:preds/pred_milestones_ciclo.parquet",
+        "literal:silver/milestones_ciclo_final.parquet",
+        "literal:silver/dim_mediana_etapas_tipo_sp_variedad_area.parquet",
+        "literal:silver/milestone_window_ciclo_final.parquet",
+        "literal:silver/dim_cosecha_progress_bloque_fecha.parquet",
+        "literal:preds/pred_oferta_dia.parquet",
+        "literal:preds/pred_oferta_grado.parquet",
+        "literal:preds/pred_peso_grado.parquet",
+        "literal:preds/pred_peso_hidratado_grado.parquet",
+        "literal:preds/pred_peso_final_ajustado_grado.parquet",
+        "literal:preds/pred_cajas_grado.parquet",
+        "literal:preds/pred_cajas_dia.parquet",
+        "literal:preds/pred_tallos_cosecha_dia.parquet",
+        "literal:preds/capacidad_cosecha_dia.parquet",
+        "literal:preds/pred_horas_poscosecha_dia.parquet",
+        "literal:preds/pred_plan_horas_dia.parquet",
+        "literal:silver/fact_ciclo_maestro_patch_pred_tallos_report.parquet",
+        "literal:features/features_ciclo_fecha.parquet",
+        "literal:features/features_harvest_window_ml1.parquet",
+        "literal:gold/pred_harvest_window_ml1.parquet",
+        "literal:gold/universe_harvest_grid_ml1.parquet",
+        "literal:features/features_curva_cosecha_bloque_dia.parquet",
+        "literal:gold/dim_cap_tallos_real_dia.parquet",
+        "literal:features/trainset_curva_beta_params.parquet",
+        "literal:features/trainset_curva_beta_multiplier_dia.parquet",
+        "literal:features/features_cosecha_bloque_fecha.parquet",
+        "literal:gold/pred_dist_grado_ml1.parquet",
+        "literal:features/features_peso_tallo_grado_bloque_dia.parquet",
+        "literal:gold/pred_peso_tallo_grado_ml1.parquet",
+        "literal:gold/pred_tallos_grado_dia_ml1.parquet",
+        "literal:gold/pred_tallos_grado_dia_ml1_full.parquet",
+        "literal:gold/pred_kg_grado_dia_ml1_full.parquet",
+        "literal:gold/pred_kg_grado_dia_ml1_agg.parquet",
+        "literal:gold/pred_cajas_grado_dia_ml1_full.parquet",
+        "literal:gold/pred_cajas_grado_dia_ml1_agg.parquet",
+        "literal:gold/pred_cajas_dia_ml1_full.parquet",
+        "literal:gold/pred_poscosecha_seed_grado_dia_bloque_destino.parquet",
+        "literal:gold/pred_poscosecha_seed_dia_destino.parquet",
+        "literal:gold/pred_poscosecha_seed_dia_total.parquet",
+        "literal:gold/pred_poscosecha_ml1_dh_grado_dia_bloque_destino.parquet",
+        "literal:gold/pred_poscosecha_ml1_hidr_grado_dia_bloque_destino.parquet",
+        "literal:gold/pred_poscosecha_ml1_full_grado_dia_bloque_destino.parquet",
+        "literal:gold/pred_poscosecha_ml1_dia_bloque_destino.parquet",
+        "literal:gold/pred_poscosecha_ml1_dia_destino.parquet",
+        "literal:gold/pred_poscosecha_ml1_dia_total.parquet",
+        "literal:gold/view_planificacion_campo_tallos_dia.parquet",
+        "literal:gold/view_planificacion_campo_tallos_semana.parquet",
+        "literal:gold/view_planificacion_campo_tallos_semana_area.parquet",
+        "literal:gold/view_planificacion_campo_tallos_semana_bloque.parquet",
+        "literal:gold/universe_harvest_grid_ml2.parquet",
+        "literal:gold/pred_kg_grado_dia_ml2_full.parquet",
+        "literal:gold/pred_kg_grado_dia_ml2_agg.parquet",
+        "literal:gold/pred_cajas_grado_dia_ml2_full.parquet",
+        "literal:gold/pred_cajas_grado_dia_ml2_agg.parquet",
+        "literal:gold/pred_cajas_dia_ml2_full.parquet",
+        "literal:gold/pred_poscosecha_ml2_dh_grado_dia_bloque_destino.parquet",
+        "literal:gold/pred_poscosecha_ml2_hidr_grado_dia_bloque_destino.parquet",
+        "literal:gold/pred_poscosecha_ml2_full_grado_dia_bloque_destino.parquet",
+        "literal:gold/pred_poscosecha_ml2_dia_bloque_destino.parquet",
+        "literal:gold/pred_poscosecha_ml2_dia_destino.parquet",
+        "literal:gold/pred_poscosecha_ml2_dia_total.parquet",
+        "literal:audit/audit_universe_harvest_grid_ml1_checks.parquet",
+        "literal:audit/audit_dist_grado_ml1_checks.parquet",
+        "literal:audit/audit_poscosecha_seed_checks.parquet",
+        "literal:audit/audit_ml1_curva_clipping_by_cycle.parquet",
+        "literal:audit/audit_ml1_curva_clipping_by_relpos.parquet",
+        "literal:audit/audit_ml1_curva_clipping_report.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\ops\\runner.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\ops\\runner.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\ops\\validators.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\ops\\validators.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "read_parquet(<dynamic>)"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\preds\\build_capacidad_cosecha_dia.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\preds\\build_capacidad_cosecha_dia.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_tallos_cosecha_dia.parquet",
+        "literal:dim_factor_uph_cosecha_clima.parquet",
+        "literal:dim_baseline_uph_cosecha.parquet",
+        "literal:weather_hour_wide.parquet",
+        "literal:pred_peso_grado.parquet",
+        "literal:capacidad_cosecha_dia.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\preds\\build_pred_cajas_from_peso_final.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\preds\\build_pred_cajas_from_peso_final.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_peso_final_ajustado_grado.parquet",
+        "literal:pred_cajas_grado.parquet",
+        "literal:pred_cajas_dia.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\preds\\build_pred_horas_poscosecha.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\preds\\build_pred_horas_poscosecha.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_peso_final_ajustado_grado.parquet",
+        "literal:pred_peso_final_grado_dia.parquet",
+        "literal:pred_peso_grado.parquet",
+        "literal:pred_oferta_grado.parquet",
+        "literal:pred_oferta_dia.parquet",
+        "literal:dim_baseline_capacidad_kg_h_persona.parquet",
+        "literal:dim_capacidad_baseline_proceso.parquet",
+        "literal:dim_capacidad_baseline_kg_h_persona.parquet",
+        "literal:dim_baseline_capacidad_proceso_kg_h_persona.parquet",
+        "literal:dim_baseline_capacidad_tallos_h_persona.parquet",
+        "literal:dim_capacidad_baseline_tallos_proceso.parquet",
+        "literal:dim_capacidad_baseline_tallos_h_persona.parquet",
+        "literal:dim_mix_proceso_semana.parquet",
+        "literal:dim_peso_tallo_promedio_dia.parquet",
+        "literal:pred_horas_poscosecha_dia.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\preds\\build_pred_milestones_baseline.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\preds\\build_pred_milestones_baseline.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:fact_ciclo_maestro.parquet",
+        "literal:pred_milestones_ciclo.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\preds\\build_pred_oferta_dia.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\preds\\build_pred_oferta_dia.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:fact_ciclo_maestro.parquet",
+        "literal:milestone_window_ciclo_final.parquet",
+        "literal:pred_oferta_dia.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\preds\\build_pred_oferta_dia_from_universe_ml1.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\preds\\build_pred_oferta_dia_from_universe_ml1.py",
+      "inputs": [
+        "data/gold/universe_harvest_grid_ml1.parquet",
+        "data/silver/fact_ciclo_maestro.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "literal:data/preds/pred_oferta_dia.parquet"
+      ],
+      "stage_guess": "gold"
+    },
+    {
+      "script": "\\src\\preds\\build_pred_oferta_grado.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\preds\\build_pred_oferta_grado.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_oferta_dia.parquet",
+        "literal:dim_dist_grado_baseline.parquet",
+        "literal:pred_oferta_grado.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\preds\\build_pred_peso_final_ajustado_grado.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\preds\\build_pred_peso_final_ajustado_grado.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_peso_hidratado_grado.parquet",
+        "literal:dim_mermas_ajuste_fecha_post_destino.parquet",
+        "literal:pred_peso_final_ajustado_grado.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\preds\\build_pred_peso_grado.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\preds\\build_pred_peso_grado.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_oferta_grado.parquet",
+        "literal:dim_peso_tallo_baseline.parquet",
+        "literal:pred_peso_grado.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\preds\\build_pred_peso_hidratado_grado.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\preds\\build_pred_peso_hidratado_grado.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:pred_peso_grado.parquet",
+        "literal:dim_hidratacion_dh_grado_destino.parquet",
+        "literal:fact_hidratacion_real_post_grado_destino.parquet",
+        "literal:pred_peso_hidratado_grado.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\preds\\build_pred_plan_horas_dia.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\preds\\build_pred_plan_horas_dia.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "literal:capacidad_cosecha_dia.parquet",
+        "literal:pred_horas_poscosecha_dia.parquet",
+        "literal:pred_peso_grado.parquet",
+        "literal:pred_plan_horas_dia.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\preds\\build_pred_tallos_cosecha_dia.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\preds\\build_pred_tallos_cosecha_dia.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "to_parquet(<dynamic>)",
+        "literal:pred_peso_grado.parquet",
+        "literal:pred_oferta_grado.parquet",
+        "literal:pred_oferta_dia.parquet",
+        "literal:pred_tallos_cosecha_dia.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\run_pipeline.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\run_pipeline.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "literal:config/settings.yaml"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_ciclo_maestro_from_fenograma.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_ciclo_maestro_from_fenograma.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:fenograma_xlsm_raw.parquet",
+        "literal:balanza_bloque_fecha_raw.parquet",
+        "literal:indices_xl_raw.parquet",
+        "literal:indices_clo_raw.parquet",
+        "literal:fact_ciclo_maestro.parquet",
+        "literal:grid_ciclo_fecha.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_ciclo_maestro_from_sources.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_ciclo_maestro_from_sources.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:fenograma_xlsm_raw.parquet",
+        "literal:balanza_bloque_fecha_raw.parquet",
+        "literal:indices_xl_raw.parquet",
+        "literal:indices_clo_raw.parquet",
+        "literal:fact_ciclo_maestro.parquet",
+        "literal:grid_ciclo_fecha.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_dim_baseline_capacidad_tallos_h_persona.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_dim_baseline_capacidad_tallos_h_persona.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "literal:ghu_maestro_horas.parquet",
+        "literal:personal_raw.parquet",
+        "literal:dim_baseline_capacidad_tallos_h_persona.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_dim_capacidad_baseline_tallos_proceso.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_dim_capacidad_baseline_tallos_proceso.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "literal:ghu_maestro_horas.parquet",
+        "literal:personal_raw.parquet",
+        "literal:fact_capacidad_tallos_proceso_hist.parquet",
+        "literal:dim_capacidad_baseline_tallos_proceso.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_dim_clima_bloque_dia.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_dim_clima_bloque_dia.py",
+      "inputs": [
+        "data/silver/fact_ciclo_maestro.parquet",
+        "data/silver/weather_hour_wide.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "literal:data/silver/dim_clima_bloque_dia.parquet"
+      ],
+      "stage_guess": "silver"
+    },
+    {
+      "script": "\\src\\silver\\build_dim_cosecha_progress_bloque_fecha.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_dim_cosecha_progress_bloque_fecha.py",
+      "inputs": [
+        "data/silver/dim_clima_bloque_dia.parquet",
+        "data/silver/fact_ciclo_maestro.parquet",
+        "data/silver/fact_cosecha_real_grado_dia.parquet",
+        "data/silver/grid_ciclo_fecha.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "literal:data/silver/milestones_ciclo_final.parquet",
+        "literal:data/silver/dim_cosecha_progress_bloque_fecha.parquet"
+      ],
+      "stage_guess": "silver"
+    },
+    {
+      "script": "\\src\\silver\\build_dim_dh_baseline_grado_destino.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_dim_dh_baseline_grado_destino.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:fact_hidratacion_real_post_grado_destino.parquet",
+        "literal:dim_dh_baseline_grado_destino.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_dim_dist_grado_baseline.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_dim_dist_grado_baseline.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:fact_cosecha_real_grado_dia.parquet",
+        "literal:dim_dist_grado_baseline.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_dim_estado_termico_cultivo_bloque_fecha.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_dim_estado_termico_cultivo_bloque_fecha.py",
+      "inputs": [
+        "data/silver/dim_clima_bloque_dia.parquet",
+        "data/silver/fact_ciclo_maestro.parquet",
+        "data/silver/grid_ciclo_fecha.parquet"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "literal:data/silver/dim_estado_termico_cultivo_bloque_fecha.parquet"
+      ],
+      "stage_guess": "silver"
+    },
+    {
+      "script": "\\src\\silver\\build_dim_factor_uph_cosecha_clima.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_dim_factor_uph_cosecha_clima.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "literal:fact_cosecha_uph_hora_clima.parquet",
+        "literal:weather_hour_wide.parquet",
+        "literal:Config sugerida: cosecha.uph_hour_file en settings.yaml",
+        "literal:dim_factor_uph_cosecha_clima.parquet",
+        "literal:dim_baseline_uph_cosecha.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_dim_hidratacion_baseline_grado_destino.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_dim_hidratacion_baseline_grado_destino.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:fact_hidratacion_real_post_grado_destino.parquet",
+        "literal:dim_hidratacion_fecha_cosecha_grado_destino.parquet",
+        "literal:dim_hidratacion_baseline_grado_destino.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_dim_hidratacion_fecha_cosecha_grado_destino.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_dim_hidratacion_fecha_cosecha_grado_destino.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:fact_hidratacion_real_post_grado_destino.parquet",
+        "literal:dim_hidratacion_fecha_cosecha_grado_destino.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_dim_mediana_etapas_tipo_sp_variedad_area.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_dim_mediana_etapas_tipo_sp_variedad_area.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:milestones_ciclo_final.parquet",
+        "literal:fact_ciclo_maestro.parquet",
+        "literal:dim_mediana_etapas_tipo_sp_variedad_area.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_dim_mermas_ajuste_fecha_post.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_dim_mermas_ajuste_fecha_post.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "literal:balanza_2a_raw.parquet",
+        "literal:balanza_2_raw.parquet",
+        "literal:dim_mermas_ajuste_fecha_post_destino.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_dim_mix_proceso_semana_from_ventas.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_dim_mix_proceso_semana_from_ventas.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "read_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "open(<dynamic>)",
+        "literal:settings.yaml",
+        "literal:config/settings.yaml",
+        "literal:ventas_2025_raw.parquet",
+        "literal:ventas_2026_raw.parquet",
+        "literal:dim_mix_proceso_semana.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_dim_peso_tallo_baseline.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_dim_peso_tallo_baseline.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:fact_peso_tallo_real_grado_dia.parquet",
+        "literal:dim_peso_tallo_baseline.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_dim_peso_tallo_promedio_dia.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_dim_peso_tallo_promedio_dia.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:fact_peso_tallo_real_grado_dia.parquet",
+        "literal:dim_peso_tallo_promedio_dia.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_dim_variedad_canon.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_dim_variedad_canon.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "literal:data/silver/dim_variedad_canon.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_fact_capacidad_proceso_hist.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_fact_capacidad_proceso_hist.py",
+      "inputs": [],
+      "outputs": [],
+      "unknown_io_hints": [
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "open(<dynamic>)",
+        "literal:settings.yaml",
+        "literal:config/settings.yaml",
+        "literal:ghu_maestro_horas.parquet",
+        "literal:personal_raw.parquet",
+        "literal:fact_capacidad_proceso_hist.parquet",
+        "literal:dim_capacidad_baseline_proceso.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_fact_cosecha_real_grado_dia.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_fact_cosecha_real_grado_dia.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "read_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "literal:balanza_cosecha_raw.parquet",
+        "literal:fact_cosecha_real_grado_dia.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_fact_cosecha_uph_hora_clima.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_fact_cosecha_uph_hora_clima.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "literal:weather_hour_wide.parquet",
+        "literal:ghu_maestro_horas.parquet",
+        "literal:dim_factor_codigo_zcsp_cosecha.parquet",
+        "literal:fact_cosecha_uph_hora_clima.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_fact_peso_tallo_real_grado_dia.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_fact_peso_tallo_real_grado_dia.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:balanza_raw.parquet",
+        "literal:fact_peso_tallo_real_grado_dia.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_hidratacion_real_from_balanza2.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_hidratacion_real_from_balanza2.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "literal:balanza_2_raw.parquet",
+        "literal:balanza_1c_raw.parquet",
+        "literal:fact_hidratacion_real_post_grado_destino.parquet",
+        "literal:dim_hidratacion_dh_grado_destino.parquet",
+        "literal:dim_hidratacion_fecha_post_grado_destino.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_milestone_window_ciclo_final_with_inference.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_milestone_window_ciclo_final_with_inference.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:milestones_ciclo_final.parquet",
+        "literal:fact_ciclo_maestro.parquet",
+        "literal:dim_mediana_etapas_tipo_sp_variedad_area.parquet",
+        "literal:milestone_window_ciclo_final.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_milestones_final.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_milestones_final.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:fact_milestones_ciclo.parquet",
+        "literal:pred_milestones_ciclo.parquet",
+        "literal:milestones_ciclo_final.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_milestones_windows.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_milestones_windows.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "read_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "literal:fact_ciclo_maestro.parquet",
+        "literal:fact_milestones_ciclo.parquet",
+        "literal:milestone_window_ciclo.parquet",
+        "literal:OK milestones: {len(milestones)} filas -> fact_milestones_ciclo.parquet",
+        "literal:OK windows:    {len(windows)} filas -> milestone_window_ciclo.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_patch_ciclo_maestro_from_pred_tallos.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_patch_ciclo_maestro_from_pred_tallos.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:fact_ciclo_maestro.parquet",
+        "literal:../preds/pred_tallos_ciclo.parquet",
+        "literal:fact_ciclo_maestro_patch_pred_tallos_report.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_weather_hour_estado.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_weather_hour_estado.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "literal:weather_hour_main.parquet",
+        "literal:weather_hour_a4.parquet",
+        "literal:weather_hour_estado.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_weather_hour_wide.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_weather_hour_wide.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "write_parquet(<dynamic>)",
+        "literal:weather_hour_main.parquet",
+        "literal:weather_hour_a4.parquet",
+        "literal:weather_hour_estado.parquet",
+        "literal:weather_hour_wide.parquet"
+      ],
+      "stage_guess": "other"
+    },
+    {
+      "script": "\\src\\silver\\build_windows_from_milestones_final.py",
+      "abs_path": "C:\\Data-LakeHouse\\src\\silver\\build_windows_from_milestones_final.py",
+      "inputs": [
+        "config/settings.yaml"
+      ],
+      "outputs": [],
+      "unknown_io_hints": [
+        "write_parquet(<dynamic>)",
+        "read_parquet(<dynamic>)",
+        "literal:milestones_ciclo_final.parquet",
+        "literal:milestone_window_ciclo_final.parquet"
+      ],
+      "stage_guess": "other"
+    }
+  ],
+  "edges": [],
+  "inferred_order": [
+    "\\src\\audit\\audit_harvest_windows_real.py",
+    "\\src\\audit\\audit_ml1_curva_shares.py",
+    "\\src\\features\\build_cap_tallos_real_dia.py",
+    "\\src\\models\\ml1\\train_ajuste_poscosecha_ml1.py",
+    "\\src\\models\\ml1\\train_curva_cdf_dia.py",
+    "\\src\\models\\ml1\\train_curva_share_dia.py",
+    "\\src\\models\\ml1\\train_desp_poscosecha_ml1.py",
+    "\\src\\models\\ml1\\train_dh_poscosecha_ml1.py",
+    "\\src\\models\\ml1\\train_hidr_poscosecha_ml1.py",
+    "\\src\\silver\\build_dim_clima_bloque_dia.py",
+    "\\src\\silver\\build_dim_cosecha_progress_bloque_fecha.py",
+    "\\src\\silver\\build_dim_estado_termico_cultivo_bloque_fecha.py",
+    "\\src\\audit\\audit_mismatch_tallos_grado_vs_dia.py",
+    "\\src\\audit\\audit_ml1_curva_clipping_impact.py",
+    "\\src\\features\\build_features_cosecha_bloque_fecha.py",
+    "\\src\\features\\build_features_curva_cosecha_bloque_dia.py",
+    "\\src\\features\\build_features_peso_tallo_grado_bloque_dia.py",
+    "\\src\\features\\build_targets_curva_beta_multiplier_dia.py",
+    "\\src\\features\\build_targets_curva_beta_params.py",
+    "\\src\\gold\\build_pred_cajas_postcosecha_seed_mix_grado_dia.py",
+    "\\src\\gold\\build_pred_kg_cajas_grado_dia_ml1_full.py",
+    "\\src\\gold\\build_pred_poscosecha_ml1_views.py",
+    "\\src\\gold\\build_pred_tallos_grado_dia_ml1_full.py",
+    "\\src\\gold\\build_universe_harvest_grid_ml1.py",
+    "\\src\\gold\\build_view_planificacion_campo_tallos.py",
+    "\\src\\gold\\postprocess_curva_share_smooth_ml1.py",
+    "\\src\\models\\ml1\\apply_curva_beta_params.py",
+    "\\src\\models\\ml1\\apply_curva_cdf_dia.py",
+    "\\src\\models\\ml1\\apply_desp_ajuste_poscosecha_ml1.py",
+    "\\src\\models\\ml1\\apply_dh_poscosecha_ml1.py",
+    "\\src\\models\\ml1\\apply_hidr_poscosecha_ml1.py",
+    "\\src\\preds\\build_pred_oferta_dia_from_universe_ml1.py",
+    "\\src\\audit\\audit_dist_grado_ml1.py",
+    "\\src\\audit\\audit_ml1_curva_share_vs_real.py",
+    "\\src\\audit\\audit_poscosecha_seed.py",
+    "\\src\\audit\\audit_universe_harvest_grid_ml1.py",
+    "\\src\\audit\\audit_ajuste_poscosecha_ml2.py",
+    "\\src\\audit\\audit_desp_poscosecha_ml2.py",
+    "\\src\\audit\\audit_dh_poscosecha_ml2.py",
+    "\\src\\audit\\audit_harvest_horizon_ml2.py",
+    "\\src\\audit\\audit_harvest_start_ml2.py",
+    "\\src\\audit\\audit_hidr_poscosecha_ml2.py",
+    "\\src\\audit\\audit_mass_balance_pred_oferta_vs_gold.py",
+    "\\src\\audit\\audit_peso_tallo_ml2.py",
+    "\\src\\audit\\audit_poscosecha_ml2_baseline.py",
+    "\\src\\audit\\audit_share_grado_ml2.py",
+    "\\src\\audit\\audit_tallos_curve_ml2.py",
+    "\\src\\bronze\\build_balanza_1c_raw.py",
+    "\\src\\bronze\\build_balanza_cosecha_raw.py",
+    "\\src\\bronze\\build_balanza_mermas_sources.py",
+    "\\src\\bronze\\build_conteo_tallos_alturas_gyp2419_raw.py",
+    "\\src\\bronze\\build_fenograma_raw.py",
+    "\\src\\bronze\\build_fenograma_sources.py",
+    "\\src\\bronze\\build_ghu_maestro_horas.py",
+    "\\src\\bronze\\build_personal_sources.py",
+    "\\src\\bronze\\build_ventas_sources.py",
+    "\\src\\bronze\\build_weather_hour_a4.py",
+    "\\src\\bronze\\build_weather_hour_main.py",
+    "\\src\\common\\ids.py",
+    "\\src\\common\\io.py",
+    "\\src\\common\\timegrid.py",
+    "\\src\\eval\\build_kpis_ajuste_poscosecha_ml2.py",
+    "\\src\\eval\\build_kpis_desp_poscosecha_ml2.py",
+    "\\src\\eval\\build_kpis_dh_poscosecha_ml2.py",
+    "\\src\\eval\\build_kpis_harvest_horizon_ml2.py",
+    "\\src\\eval\\build_kpis_harvest_start_ml2.py",
+    "\\src\\eval\\build_kpis_hidr_poscosecha_ml2.py",
+    "\\src\\eval\\build_kpis_peso_tallo_ml2.py",
+    "\\src\\eval\\build_kpis_poscosecha_ml2_baseline.py",
+    "\\src\\eval\\build_kpis_share_grado_ml2.py",
+    "\\src\\eval\\build_kpis_tallos_curve_ml2.py",
+    "\\src\\features\\build_features_ciclo_fecha.py",
+    "\\src\\features\\build_features_harvest_window_ml1.py",
+    "\\src\\gold\\apply_desp_ajuste_poscosecha_ml1_on_ml2_hidr.py",
+    "\\src\\gold\\apply_dh_poscosecha_ml1_on_ml2_seed.py",
+    "\\src\\gold\\apply_hidr_poscosecha_ml1_on_ml2_dh.py",
+    "\\src\\gold\\build_ds_ajuste_poscosecha_ml2_v1.py",
+    "\\src\\gold\\build_ds_desp_poscosecha_ml2_v1.py",
+    "\\src\\gold\\build_ds_dh_poscosecha_ml2_v1.py",
+    "\\src\\gold\\build_ds_harvest_horizon_ml2_v2.py",
+    "\\src\\gold\\build_ds_harvest_start_ml2_v2.py",
+    "\\src\\gold\\build_ds_hidr_poscosecha_ml2_v1.py",
+    "\\src\\gold\\build_ds_peso_tallo_ml2_v1.py",
+    "\\src\\gold\\build_ds_share_grado_ml2_v1.py",
+    "\\src\\gold\\build_ds_tallos_curve_ml2_v2.py",
+    "\\src\\gold\\build_pred_kg_cajas_ml2.py",
+    "\\src\\gold\\build_pred_poscosecha_ml2_final_views.py",
+    "\\src\\gold\\build_pred_poscosecha_ml2_seed_mix_grado_dia.py",
+    "\\src\\gold\\build_pred_poscosecha_ml2_views_from_full.py",
+    "\\src\\gold\\build_pred_tallos_grado_dia_ml1.py",
+    "\\src\\gold\\build_pred_tallos_ml2_full.py",
+    "\\src\\gold\\build_universe_harvest_grid_ml2.py",
+    "\\src\\models\\ml1\\apply_curva_share_dia.py",
+    "\\src\\models\\ml1\\apply_curva_tallos_dia.py",
+    "\\src\\models\\ml1\\apply_dist_grado.py",
+    "\\src\\models\\ml1\\apply_harvest_window_ml1.py",
+    "\\src\\models\\ml1\\apply_peso_tallo_grado.py",
+    "\\src\\models\\ml1\\train_curva_beta_multiplier_dia.py",
+    "\\src\\models\\ml1\\train_curva_beta_params.py",
+    "\\src\\models\\ml1\\train_curva_tallos_dia.py",
+    "\\src\\models\\ml1\\train_dist_grado.py",
+    "\\src\\models\\ml1\\train_harvest_window_ml1.py",
+    "\\src\\models\\ml1\\train_peso_tallo_grado.py",
+    "\\src\\models\\ml2\\apply_ajuste_poscosecha_ml2.py",
+    "\\src\\models\\ml2\\apply_desp_poscosecha_ml2.py",
+    "\\src\\models\\ml2\\apply_dh_poscosecha_ml2.py",
+    "\\src\\models\\ml2\\apply_harvest_horizon_ml2.py",
+    "\\src\\models\\ml2\\apply_harvest_start_ml2.py",
+    "\\src\\models\\ml2\\apply_hidr_poscosecha_ml2.py",
+    "\\src\\models\\ml2\\apply_peso_tallo_ml2.py",
+    "\\src\\models\\ml2\\apply_share_grado_ml2.py",
+    "\\src\\models\\ml2\\apply_tallos_curve_ml2.py",
+    "\\src\\models\\ml2\\train_ajuste_poscosecha_ml2.py",
+    "\\src\\models\\ml2\\train_desp_poscosecha_ml2.py",
+    "\\src\\models\\ml2\\train_dh_poscosecha_ml2.py",
+    "\\src\\models\\ml2\\train_harvest_horizon_ml2.py",
+    "\\src\\models\\ml2\\train_harvest_start_ml2.py",
+    "\\src\\models\\ml2\\train_hidr_poscosecha_ml2.py",
+    "\\src\\models\\ml2\\train_peso_tallo_ml2.py",
+    "\\src\\models\\ml2\\train_share_grado_ml2.py",
+    "\\src\\models\\ml2\\train_tallos_curve_ml2.py",
+    "\\src\\ops\\io.py",
+    "\\src\\ops\\registry.py",
+    "\\src\\ops\\runner.py",
+    "\\src\\ops\\validators.py",
+    "\\src\\preds\\build_capacidad_cosecha_dia.py",
+    "\\src\\preds\\build_pred_cajas_from_peso_final.py",
+    "\\src\\preds\\build_pred_horas_poscosecha.py",
+    "\\src\\preds\\build_pred_milestones_baseline.py",
+    "\\src\\preds\\build_pred_oferta_dia.py",
+    "\\src\\preds\\build_pred_oferta_grado.py",
+    "\\src\\preds\\build_pred_peso_final_ajustado_grado.py",
+    "\\src\\preds\\build_pred_peso_grado.py",
+    "\\src\\preds\\build_pred_peso_hidratado_grado.py",
+    "\\src\\preds\\build_pred_plan_horas_dia.py",
+    "\\src\\preds\\build_pred_tallos_cosecha_dia.py",
+    "\\src\\run_pipeline.py",
+    "\\src\\silver\\build_ciclo_maestro_from_fenograma.py",
+    "\\src\\silver\\build_ciclo_maestro_from_sources.py",
+    "\\src\\silver\\build_dim_baseline_capacidad_tallos_h_persona.py",
+    "\\src\\silver\\build_dim_capacidad_baseline_tallos_proceso.py",
+    "\\src\\silver\\build_dim_dh_baseline_grado_destino.py",
+    "\\src\\silver\\build_dim_dist_grado_baseline.py",
+    "\\src\\silver\\build_dim_factor_uph_cosecha_clima.py",
+    "\\src\\silver\\build_dim_hidratacion_baseline_grado_destino.py",
+    "\\src\\silver\\build_dim_hidratacion_fecha_cosecha_grado_destino.py",
+    "\\src\\silver\\build_dim_mediana_etapas_tipo_sp_variedad_area.py",
+    "\\src\\silver\\build_dim_mermas_ajuste_fecha_post.py",
+    "\\src\\silver\\build_dim_mix_proceso_semana_from_ventas.py",
+    "\\src\\silver\\build_dim_peso_tallo_baseline.py",
+    "\\src\\silver\\build_dim_peso_tallo_promedio_dia.py",
+    "\\src\\silver\\build_dim_variedad_canon.py",
+    "\\src\\silver\\build_fact_capacidad_proceso_hist.py",
+    "\\src\\silver\\build_fact_cosecha_real_grado_dia.py",
+    "\\src\\silver\\build_fact_cosecha_uph_hora_clima.py",
+    "\\src\\silver\\build_fact_peso_tallo_real_grado_dia.py",
+    "\\src\\silver\\build_hidratacion_real_from_balanza2.py",
+    "\\src\\silver\\build_milestone_window_ciclo_final_with_inference.py",
+    "\\src\\silver\\build_milestones_final.py",
+    "\\src\\silver\\build_milestones_windows.py",
+    "\\src\\silver\\build_patch_ciclo_maestro_from_pred_tallos.py",
+    "\\src\\silver\\build_weather_hour_estado.py",
+    "\\src\\silver\\build_weather_hour_wide.py",
+    "\\src\\silver\\build_windows_from_milestones_final.py"
+  ]
+}

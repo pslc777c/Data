@@ -1,0 +1,10 @@
+pyproject.toml
+src/ops/io.py
+src/ops/registry.py
+src/ops/runner.py
+src/ops/validators.py
+src/planificacion_macro.egg-info/PKG-INFO
+src/planificacion_macro.egg-info/SOURCES.txt
+src/planificacion_macro.egg-info/dependency_links.txt
+src/planificacion_macro.egg-info/requires.txt
+src/planificacion_macro.egg-info/top_level.txt

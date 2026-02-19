@@ -1,0 +1,52 @@
+{
+  "version": "20260204_142428",
+  "created_at_utc": "2026-02-04T14:24:34.532980",
+  "dim_path": "data/silver/dim_mermas_ajuste_fecha_post_destino.parquet",
+  "target": "ajuste",
+  "clip_range_apply": [
+    0.8,
+    1.5
+  ],
+  "features": {
+    "num": [
+      "dow",
+      "month",
+      "weekofyear"
+    ],
+    "cat": [
+      "destino"
+    ]
+  },
+  "best_model": "hgb",
+  "metrics": {
+    "ridge": {
+      "mae_mean": 0.07082149920486615,
+      "mae_std": 0.013234662176211377,
+      "score": 0.06218347365056793,
+      "n_rows": 603,
+      "n_folds": 4
+    },
+    "gbr": {
+      "mae_mean": 0.07525322711576884,
+      "mae_std": 0.030197360368872873,
+      "score": 0.06849484710373445,
+      "n_rows": 603,
+      "n_folds": 4
+    },
+    "hgb": {
+      "mae_mean": 0.06488187150966095,
+      "mae_std": 0.02834433420135405,
+      "score": 0.05940124091341491,
+      "n_rows": 603,
+      "n_folds": 4
+    },
+    "rf": {
+      "mae_mean": 0.06621690225418429,
+      "mae_std": 0.03165399064857967,
+      "score": 0.0610324655133436,
+      "n_rows": 603,
+      "n_folds": 4
+    }
+  },
+  "model_path": "models_registry/ml1/ajuste_poscosecha/20260204_142428/model.joblib"
+}

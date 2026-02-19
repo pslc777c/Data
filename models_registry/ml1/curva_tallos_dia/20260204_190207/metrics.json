@@ -1,0 +1,43 @@
+{
+  "version": "20260204_190207",
+  "created_at_utc": "2026-02-04T19:02:07.489336",
+  "features_path": "data\\features\\features_curva_cosecha_bloque_dia.parquet",
+  "n_rows_train_total": 13475,
+  "n_folds": 4,
+  "best_model": "rf",
+  "metrics": {
+    "ridge": {
+      "mae_mean": 0.9782464678635198,
+      "mae_std": 0.05832645508715882,
+      "wape_mean": 0.5873733358892818,
+      "score": 0.7689925269936123,
+      "n_rows": 13475,
+      "n_folds": 4
+    },
+    "gbr": {
+      "mae_mean": 0.5826118636851743,
+      "mae_std": 0.03624399532178645,
+      "wape_mean": 0.3509045706572891,
+      "score": 0.4584628889404699,
+      "n_rows": 13475,
+      "n_folds": 4
+    },
+    "hgb": {
+      "mae_mean": 0.5697064010534787,
+      "mae_std": 0.03702842919730735,
+      "wape_mean": 0.34285865587029835,
+      "score": 0.44838428031290745,
+      "n_rows": 13475,
+      "n_folds": 4
+    },
+    "rf": {
+      "mae_mean": 0.5680619226933807,
+      "mae_std": 0.03307148276304918,
+      "wape_mean": 0.3424477353704379,
+      "score": 0.4468786225034647,
+      "n_rows": 13475,
+      "n_folds": 4
+    }
+  },
+  "model_path": "models_registry/ml1/curva_tallos_dia/20260204_190207/model_curva_tallos_dia.joblib"
+}
