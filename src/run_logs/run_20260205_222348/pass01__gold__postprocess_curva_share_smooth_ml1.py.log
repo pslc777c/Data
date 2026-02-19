@@ -1,0 +1,18 @@
+
+==============================================================================================================
+[2026-02-05 22:25:56] PASS 01 | RUN: gold\postprocess_curva_share_smooth_ml1.py
+CMD: C:\Data-LakeHouse\venv\Scripts\python.exe C:\Data-LakeHouse\src\gold\postprocess_curva_share_smooth_ml1.py
+CWD: C:\Data-LakeHouse
+==============================================================================================================
+OK -> data\gold\pred_factor_curva_ml1.parquet | rows=25,686
+[CHECK] mass balance vs tallos_proy | max abs diff: 0.000000000029
+[CHECK] share sum per ciclo | min=1.00000000 max=1.00000000
+[CHECK] capped rate pre=0.0000 post=0.0000
+[CAP] global_cap(Q=0.995) = 0.133172
+[SMOOTH] win=5 centered=True
+
+--- RESULT ---
+[2026-02-05 22:25:57] EXIT_CODE=0 | SECONDS=1.12
+LOG: C:\Data-LakeHouse\src\run_logs\run_20260205_222348\pass01__gold__postprocess_curva_share_smooth_ml1.py.log
+--------------
+

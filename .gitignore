@@ -21,4 +21,16 @@ data/
 config/settings.yaml
 config/*.secret*
 
+# --- Repo oficial: solo src + docs + readme + meta ---
+# Ignorar TODO por defecto
+/*
+
+# Permitir lo mínimo
+!/.gitignore
+!/README.md
+!/pyproject.toml
+!/docs/
+!/docs/**
+!/src/
+!/src/**
 

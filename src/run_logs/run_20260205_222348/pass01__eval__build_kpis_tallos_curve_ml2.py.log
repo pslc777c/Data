@@ -1,0 +1,24 @@
+
+==============================================================================================================
+[2026-02-05 22:28:07] PASS 01 | RUN: eval\build_kpis_tallos_curve_ml2.py
+CMD: C:\Data-LakeHouse\venv\Scripts\python.exe C:\Data-LakeHouse\src\eval\build_kpis_tallos_curve_ml2.py
+CWD: C:\Data-LakeHouse
+==============================================================================================================
+[OK] Wrote global: C:\Data-LakeHouse\data\eval\ml2\ml2_tallos_curve_eval_global.parquet
+ n_rows  n_cycles     mae_ml1    mae_ml2  wape_ml1  wape_ml2  smape_ml1  smape_ml2  improvement_abs_mae  improvement_abs_wape created_at
+  24352       623 2726.919224 454.700343  0.890893  0.148552   1.217592   0.954867           2272.21888              0.742341 2026-02-05
+
+[OK] Wrote group : C:\Data-LakeHouse\data\eval\ml2\ml2_tallos_curve_eval_by_group.parquet (group_col=estado) rows=2
+group_col group_val  n_rows  n_cycles     mae_ml1    mae_ml2  wape_ml1  wape_ml2  improvement_abs_mae  improvement_abs_wape
+   estado    ACTIVO    4202       118 3428.545079 705.715231  3.035351  0.624782          2722.829848              2.410569
+   estado   CERRADO   20150       505 2580.604988 402.354708  0.745057  0.116165          2178.250281              0.628891
+
+[OK] Wrote ratio : C:\Data-LakeHouse\data\eval\ml2\ml2_tallos_curve_eval_ratio_dist.parquet
+    n  ratio_min  ratio_p05  ratio_p25  ratio_median  ratio_p75  ratio_p95  ratio_max created_at
+24352    0.22313    0.22313    0.22313       0.54563   1.439939   3.614025   4.481689 2026-02-05
+
+--- RESULT ---
+[2026-02-05 22:28:08] EXIT_CODE=0 | SECONDS=0.79
+LOG: C:\Data-LakeHouse\src\run_logs\run_20260205_222348\pass01__eval__build_kpis_tallos_curve_ml2.py.log
+--------------
+

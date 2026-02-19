@@ -1,0 +1,16 @@
+
+==============================================================================================================
+[2026-02-05 22:26:53] PASS 01 | RUN: models\ml2\train_peso_tallo_ml2.py
+CMD: C:\Data-LakeHouse\venv\Scripts\python.exe C:\Data-LakeHouse\src\models\ml2\train_peso_tallo_ml2.py
+CWD: C:\Data-LakeHouse
+==============================================================================================================
+[OK] Model saved: C:\Data-LakeHouse\data\models\ml2\peso_tallo_ml2_20260205_222704_b7c275ee.pkl
+[OK] Meta  saved: C:\Data-LakeHouse\data\models\ml2\peso_tallo_ml2_20260205_222704_b7c275ee_meta.json
+[OK] Eval  saved: C:\Data-LakeHouse\data\eval\ml2\ml2_peso_tallo_train_cv.parquet
+     MAE log train=0.0922  val=0.1560  val_clipped=0.1560  pct_clip_val=0.000%
+
+--- RESULT ---
+[2026-02-05 22:27:04] EXIT_CODE=0 | SECONDS=11.53
+LOG: C:\Data-LakeHouse\src\run_logs\run_20260205_222348\pass01__models__ml2__train_peso_tallo_ml2.py.log
+--------------
+

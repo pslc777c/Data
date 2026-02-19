@@ -1,0 +1,16 @@
+
+==============================================================================================================
+[2026-02-05 22:25:18] PASS 01 | RUN: gold\build_ds_peso_tallo_ml2_v1.py
+CMD: C:\Data-LakeHouse\venv\Scripts\python.exe C:\Data-LakeHouse\src\gold\build_ds_peso_tallo_ml2_v1.py
+CWD: C:\Data-LakeHouse
+==============================================================================================================
+[OK] Wrote dataset: C:\Data-LakeHouse\data\gold\ml2_datasets\ds_peso_tallo_ml2_v1.parquet
+     rows=309,091 cycles=623 fecha_range=[2024-03-17..2026-06-09]
+     ml1_file_used=pred_peso_tallo_grado_ml1.parquet  ml1_col_used=peso_tallo_ml1_g
+     real_source=fact_peso_tallo_real_grado_dia
+
+--- RESULT ---
+[2026-02-05 22:25:21] EXIT_CODE=0 | SECONDS=2.86
+LOG: C:\Data-LakeHouse\src\run_logs\run_20260205_222348\pass01__gold__build_ds_peso_tallo_ml2_v1.py.log
+--------------
+

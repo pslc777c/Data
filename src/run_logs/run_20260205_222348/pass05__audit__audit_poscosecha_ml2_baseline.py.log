@@ -1,0 +1,16 @@
+
+==============================================================================================================
+[2026-02-05 22:32:15] PASS 05 | RUN: audit\audit_poscosecha_ml2_baseline.py
+CMD: C:\Data-LakeHouse\venv\Scripts\python.exe C:\Data-LakeHouse\src\audit\audit_poscosecha_ml2_baseline.py
+CWD: C:\Data-LakeHouse
+==============================================================================================================
+Traceback (most recent call last):
+  File "C:\Data-LakeHouse\src\audit\audit_poscosecha_ml2_baseline.py", line 8, in <module>
+    from src.common.io import read_parquet, write_parquet
+ModuleNotFoundError: No module named 'src'
+
+--- RESULT ---
+[2026-02-05 22:32:16] EXIT_CODE=1 | SECONDS=0.64
+LOG: C:\Data-LakeHouse\src\run_logs\run_20260205_222348\pass05__audit__audit_poscosecha_ml2_baseline.py.log
+--------------
+

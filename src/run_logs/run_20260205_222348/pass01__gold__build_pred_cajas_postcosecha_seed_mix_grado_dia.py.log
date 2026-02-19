@@ -1,0 +1,32 @@
+
+==============================================================================================================
+[2026-02-05 22:25:25] PASS 01 | RUN: gold\build_pred_cajas_postcosecha_seed_mix_grado_dia.py
+CMD: C:\Data-LakeHouse\venv\Scripts\python.exe C:\Data-LakeHouse\src\gold\build_pred_cajas_postcosecha_seed_mix_grado_dia.py
+CWD: C:\Data-LakeHouse
+==============================================================================================================
+[WARN] cajas tiene duplicados por ['fecha', 'bloque_base', 'variedad_canon', 'grado'] -> dup_count=6,300 dup_rate=1.9985%
+[WARN] ejemplos dup (top 10):
+     fecha  bloque_base variedad_canon  grado
+2025-03-05          317            CLO     25
+2025-03-05          317            CLO     30
+2025-03-05          317            CLO     35
+2025-03-05          317            CLO     40
+2025-03-05          317            CLO     45
+2025-03-05          317            CLO     50
+2025-03-05          317            CLO     55
+2025-03-06          317            CLO     25
+2025-03-06          317            CLO     30
+2025-03-06          317            CLO     35
+[FIX] cajas colapsado por ['fecha', 'bloque_base', 'variedad_canon', 'grado'] (sum) -> rows=308,940
+[MIX] coverage semana->mix (W_Blanco notna): 1.0000
+[CHECK] split mass-balance max_abs_diff=0.0000000000
+[CHECK] miss_hidr_fc=821,747 (sin match por fecha_cosecha; se usó baseline grado-destino o global)
+OK -> data\gold\pred_poscosecha_seed_grado_dia_bloque_destino.parquet | rows=926,820
+OK -> data\gold\pred_poscosecha_seed_dia_destino.parquet | rows=4,105
+OK -> data\gold\pred_poscosecha_seed_dia_total.parquet | rows=1,642
+
+--- RESULT ---
+[2026-02-05 22:25:32] EXIT_CODE=0 | SECONDS=7.23
+LOG: C:\Data-LakeHouse\src\run_logs\run_20260205_222348\pass01__gold__build_pred_cajas_postcosecha_seed_mix_grado_dia.py.log
+--------------
+

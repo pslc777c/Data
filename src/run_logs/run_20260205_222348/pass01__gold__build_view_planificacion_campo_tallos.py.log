@@ -1,0 +1,18 @@
+
+==============================================================================================================
+[2026-02-05 22:25:48] PASS 01 | RUN: gold\build_view_planificacion_campo_tallos.py
+CMD: C:\Data-LakeHouse\venv\Scripts\python.exe C:\Data-LakeHouse\src\gold\build_view_planificacion_campo_tallos.py
+CWD: C:\Data-LakeHouse
+==============================================================================================================
+OK -> data\gold\view_planificacion_campo_tallos_dia.parquet | rows=308,940
+OK -> data\gold\view_planificacion_campo_tallos_semana.parquet | rows=50,473
+OK -> data\gold\view_planificacion_campo_tallos_semana_bloque.parquet | rows=4,081
+OK -> data\gold\view_planificacion_campo_tallos_semana_area.parquet | rows=466
+[CHECK] % mismatch (día): 0.0271
+[CHECK] % mismatch (semana bloque vs area): 0.0000
+
+--- RESULT ---
+[2026-02-05 22:25:50] EXIT_CODE=0 | SECONDS=1.86
+LOG: C:\Data-LakeHouse\src\run_logs\run_20260205_222348\pass01__gold__build_view_planificacion_campo_tallos.py.log
+--------------
+

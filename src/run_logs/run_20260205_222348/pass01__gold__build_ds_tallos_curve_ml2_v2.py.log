@@ -1,0 +1,15 @@
+
+==============================================================================================================
+[2026-02-05 22:25:24] PASS 01 | RUN: gold\build_ds_tallos_curve_ml2_v2.py
+CMD: C:\Data-LakeHouse\venv\Scripts\python.exe C:\Data-LakeHouse\src\gold\build_ds_tallos_curve_ml2_v2.py
+CWD: C:\Data-LakeHouse
+==============================================================================================================
+[OK] Wrote dataset: C:\Data-LakeHouse\data\gold\ml2_datasets\ds_tallos_curve_ml2_v2.parquet
+     rows=24,352 cycles=623 fecha_range=[2024-03-17..2026-06-09]
+     pred_col_used=tallos_pred_ml1_grado_dia
+
+--- RESULT ---
+[2026-02-05 22:25:25] EXIT_CODE=0 | SECONDS=1.36
+LOG: C:\Data-LakeHouse\src\run_logs\run_20260205_222348\pass01__gold__build_ds_tallos_curve_ml2_v2.py.log
+--------------
+

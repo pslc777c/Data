@@ -1,0 +1,16 @@
+
+==============================================================================================================
+[2026-02-05 22:33:58] PASS 08 | RUN: gold\build_pred_poscosecha_ml2_final_views.py
+CMD: C:\Data-LakeHouse\venv\Scripts\python.exe C:\Data-LakeHouse\src\gold\build_pred_poscosecha_ml2_final_views.py
+CWD: C:\Data-LakeHouse
+==============================================================================================================
+[OK] Wrote: C:\Data-LakeHouse\data\gold\pred_poscosecha_ml2_final_full_grado_dia_bloque_destino.parquet rows=751,248
+[OK] Wrote: C:\Data-LakeHouse\data\gold\pred_poscosecha_ml2_final_dia_bloque_destino.parquet rows=60,633
+[OK] Wrote: C:\Data-LakeHouse\data\gold\pred_poscosecha_ml2_final_dia_destino.parquet rows=2,070
+[OK] Wrote: C:\Data-LakeHouse\data\gold\pred_poscosecha_ml2_final_dia_total.parquet rows=690
+
+--- RESULT ---
+[2026-02-05 22:34:01] EXIT_CODE=0 | SECONDS=3.41
+LOG: C:\Data-LakeHouse\src\run_logs\run_20260205_222348\pass08__gold__build_pred_poscosecha_ml2_final_views.py.log
+--------------
+

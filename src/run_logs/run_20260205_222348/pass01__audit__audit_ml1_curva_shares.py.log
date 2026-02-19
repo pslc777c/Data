@@ -1,0 +1,22 @@
+
+==============================================================================================================
+[2026-02-05 22:28:24] PASS 01 | RUN: audit\audit_ml1_curva_shares.py
+CMD: C:\Data-LakeHouse\venv\Scripts\python.exe C:\Data-LakeHouse\src\audit\audit_ml1_curva_shares.py
+CWD: C:\Data-LakeHouse
+==============================================================================================================
+Traceback (most recent call last):
+  File "C:\Data-LakeHouse\src\audit\audit_ml1_curva_shares.py", line 409, in <module>
+    main()
+    ~~~~^^
+  File "C:\Data-LakeHouse\src\audit\audit_ml1_curva_shares.py", line 182, in main
+    _require(oferta, ["ciclo_id", "fecha", "bloque_base", "tallos_pred"], "pred_oferta_dia")
+    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Data-LakeHouse\src\audit\audit_ml1_curva_shares.py", line 44, in _require
+    raise ValueError(f"{name}: faltan columnas {miss}. Disponibles={list(df.columns)}")
+ValueError: pred_oferta_dia: faltan columnas ['bloque_base']. Disponibles=['ciclo_id', 'fecha', 'bloque', 'bloque_padre', 'variedad', 'tipo_sp', 'area', 'estado', 'stage', 'harvest_start', 'harvest_end_eff', 'n_harvest_days', 'tallos_proy', 'tallos_pred', 'created_at']
+
+--- RESULT ---
+[2026-02-05 22:28:25] EXIT_CODE=1 | SECONDS=1.25
+LOG: C:\Data-LakeHouse\src\run_logs\run_20260205_222348\pass01__audit__audit_ml1_curva_shares.py.log
+--------------
+
