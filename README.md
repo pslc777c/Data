@@ -1,42 +1,68 @@
-# Data Lakehouse – Planificación Macro (ML / Vistas Gold)
+# Data Lakehouse – ML1 / ML2 Planning Pipeline
 
-Repositorio del pipeline para construir datasets y vistas finales (Gold) y modelos (ML1/ML2) orientados a planificación/poscosecha, con enfoque en trazabilidad de etapas y reproducibilidad.
+Arquitectura modular para construcción de datasets analíticos y modelos predictivos
+orientados a planificación de cosecha y poscosecha.
 
-## Objetivo
-- Estandarizar la cadena de transformación desde fuentes/consultas hasta salidas analíticas.
-- Generar vistas finales (Gold) para consumo BI/operación.
-- Entrenar y evaluar modelos (ML1/ML2) como capa predictiva del proceso.
+## Arquitectura por Capas
 
-## Estructura del repositorio (alto nivel)
-> Ajusta esta sección si tu estructura real difiere.
+### Bronze
+Ingesta y normalización inicial de fuentes crudas.
 
-- `src/`  
-  Código principal del proyecto.
-  - `models/` : entrenamiento/inferencia de ML (ML1, ML2, etc.)
-  - `gold/` : construcción de vistas finales (outputs listos para BI)
-  - `silver/` / `bronze/` : (si aplica) capas intermedias de transformación
+### Silver
+Construcción de dimensiones, facts y ventanas operativas.
 
-- `sql_scripts/`  
-  SQL de apoyo para extracción/transformaciones.
+### Features
+Generación de variables derivadas por bloque, ciclo, grado y día.
 
-- `config/`  
-  Configuración del proyecto.
-  > **No versionar credenciales reales.** Usar archivos ejemplo.
+### Models
+#### ML1
+Modelos base:
+- Curvas de tallos
+- Distribución de grado
+- Peso de tallo
+- Ventanas de cosecha
+- Ajustes poscosecha baseline
 
-- `esquema/`  
-  Definiciones/estructuras (si aplica).
+#### ML2
+Modelos de refinamiento:
+- Ajuste poscosecha
+- Desperdicio
+- Hidratación
+- Harvest horizon dinámico
+- Share grado refinado
 
-- `init_duckdb.py`  
-  Inicialización local (si aplica) para pruebas/ejecución con DuckDB.
+### Gold
+Vistas finales listas para consumo operativo / BI.
 
-## Requisitos
-- Python 3.10+ (recomendado)
-- Git
-- (Opcional) DuckDB si se usa ejecución local
+### Preds
+Construcción de predicciones agregadas:
+- Oferta día
+- Tallos día
+- Peso final
+- Cajas
+- Plan horas
 
-Instalación (ejemplo):
-```bash
-python -m venv .venv
-# Windows:
-.venv\Scripts\activate
-pip install -r requirements.txt
+### Audit
+Validaciones:
+- Balance de masa
+- Curva vs real
+- Horizon consistency
+- KPI poscosecha
+
+### Ops
+Orquestación y registro de ejecuciones.
+
+---
+
+## Flujo General
+
+Bronze → Silver → Features → ML1 → ML2 → Gold → Preds → Audit
+
+---
+
+## Principios de Diseño
+
+- Separación estricta por capas
+- Reproducibilidad modular
+- Versionado por tags
+- Sin versionar datos ni artefactos
