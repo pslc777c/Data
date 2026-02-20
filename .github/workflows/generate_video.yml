@@ -117,18 +117,24 @@ jobs:
         continue-on-error: true
         shell: powershell
         run: |
-          $cmd = "python -m src.ops.runner"
+          $argsList = @()
 
-          $layer = "${{ inputs.layer }}"
-          if ($layer -and $layer.Trim().Length -gt 0) { $cmd += " --layer $layer" }
+          if ("${{ inputs.layer }}") {
+            $argsList += "--layer"
+            $argsList += "${{ inputs.layer }}"
+          }
 
-          $step = "${{ inputs.step }}"
-          if ($step -and $step.Trim().Length -gt 0) { $cmd += " --step $step" }
+          if ("${{ inputs.step }}") {
+            $argsList += "--step"
+            $argsList += "${{ inputs.step }}"
+          }
 
-          if ("${{ inputs.force }}" -eq "true") { $cmd += " --force" }
+          if ("${{ inputs.force }}" -eq "true") {
+            $argsList += "--force"
+          }
 
-          Write-Host "Running: $cmd"
-          iex $cmd
+          Write-Host "Running python -m src.ops.runner $argsList"
+          python -m src.ops.runner @argsList
 
       - name: Mark run status
         shell: powershell
