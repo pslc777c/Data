@@ -52,6 +52,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+          clean: true
 
       - name: Check local Python
         shell: powershell
@@ -174,6 +175,15 @@ jobs:
           if (Test-Path "data/gold") {
             Copy-Item -Recurse -Force "data/gold" $subset
           }
+
+      - name: Debug repo files (verify scripts)
+        shell: powershell
+        run: |
+          Write-Host "PWD:" (Get-Location)
+          Write-Host "Listing scripts folder:"
+          if (Test-Path "scripts") { dir scripts } else { Write-Host "scripts/ not found" }
+          Write-Host "Listing repo root:"
+          dir
 
       - name: Create snapshot manifest
         shell: powershell
