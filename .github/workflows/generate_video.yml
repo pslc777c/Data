@@ -46,7 +46,6 @@ env:
 
 jobs:
   run-and-collect:
-    # ✅ tu runner local Windows
     runs-on: [self-hosted, Windows, X64]
     timeout-minutes: 120
 
@@ -57,13 +56,13 @@ jobs:
           fetch-depth: 1
 
       - name: Check local Python
-        shell: pwsh
+        shell: powershell
         run: |
           python --version
           where python
 
       - name: Check ffmpeg (must be installed on runner)
-        shell: pwsh
+        shell: powershell
         run: |
           ffmpeg -version
 
@@ -77,7 +76,7 @@ jobs:
             pip-${{ runner.os }}-
 
       - name: Install dependencies
-        shell: pwsh
+        shell: powershell
         run: |
           python -m pip install --upgrade pip
           if (Test-Path "requirements-ci.txt") {
@@ -88,14 +87,13 @@ jobs:
           python -c "import sys; print('Python', sys.version)"
 
       - name: Prepare data folder
-        shell: pwsh
+        shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path $env:CI_DATA_DIR | Out-Null
           New-Item -ItemType Directory -Force -Path $env:CI_ARTIFACTS_DIR | Out-Null
           New-Item -ItemType Directory -Force -Path (Join-Path $env:CI_ARTIFACTS_DIR "snapshot") | Out-Null
           Write-Host "Data dir ready: $($env:CI_DATA_DIR)"
 
-      # (Opcional) cache de data; en self-hosted a veces no aporta mucho, pero lo dejamos
       - name: (Optional) Restore sample data cache
         if: ${{ inputs.use_sample_data }}
         uses: actions/cache@v4
@@ -107,7 +105,7 @@ jobs:
 
       - name: (Optional) Inject minimal folder structure
         if: ${{ inputs.use_sample_data }}
-        shell: pwsh
+        shell: powershell
         run: |
           $dirs = @(
             "data/bronze","data/silver","data/preds","data/features",
@@ -120,7 +118,7 @@ jobs:
       - name: Run pipeline (best-effort)
         id: run_pipeline
         continue-on-error: true
-        shell: pwsh
+        shell: powershell
         run: |
           $cmd = "python -m src.ops.runner"
           if ("${{ inputs.layer }}".Length -gt 0) { $cmd += " --layer ${{ inputs.layer }}" }
@@ -131,7 +129,7 @@ jobs:
           iex $cmd
 
       - name: Mark run status
-        shell: pwsh
+        shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path $env:CI_ARTIFACTS_DIR | Out-Null
           if ("${{ steps.run_pipeline.outcome }}" -eq "success") {
@@ -143,7 +141,7 @@ jobs:
           Get-Content (Join-Path $env:CI_ARTIFACTS_DIR "pipeline_status.txt")
 
       - name: Collect logs (run_logs)
-        shell: pwsh
+        shell: powershell
         run: |
           $dest = Join-Path $env:CI_ARTIFACTS_DIR "run_logs"
           New-Item -ItemType Directory -Force -Path $dest | Out-Null
@@ -155,7 +153,7 @@ jobs:
           }
 
       - name: Collect key outputs (eval/audit/gold)
-        shell: pwsh
+        shell: powershell
         run: |
           $subset = Join-Path $env:CI_ARTIFACTS_DIR "data_subset"
           New-Item -ItemType Directory -Force -Path $subset | Out-Null
@@ -174,28 +172,29 @@ jobs:
           }
 
       - name: Create snapshot manifest
-        shell: pwsh
+        shell: powershell
         run: |
-          python - << 'PY'
-          import os, hashlib, json
-          root = os.environ.get("CI_ARTIFACTS_DIR","ci_artifacts")
-          manifest = []
-          for base, _, files in os.walk(root):
-            for f in files:
-              p = os.path.join(base, f)
-              try:
-                st = os.stat(p)
-                with open(p, "rb") as fh:
-                  h = hashlib.md5(fh.read()).hexdigest()
-                manifest.append({"path": os.path.relpath(p, root), "bytes": st.st_size, "md5": h})
-              except Exception as e:
-                manifest.append({"path": os.path.relpath(p, root), "error": str(e)})
-          manifest.sort(key=lambda x: x.get("path",""))
-          out = os.path.join(root, "snapshot_manifest.json")
-          with open(out, "w", encoding="utf-8") as fh:
-            json.dump(manifest, fh, indent=2, ensure_ascii=False)
-          print(f"Wrote {out} with {len(manifest)} items")
-          PY
+          $py = @"
+import os, hashlib, json
+root = os.environ.get("CI_ARTIFACTS_DIR","ci_artifacts")
+manifest = []
+for base, _, files in os.walk(root):
+  for f in files:
+    p = os.path.join(base, f)
+    try:
+      st = os.stat(p)
+      with open(p, "rb") as fh:
+        h = hashlib.md5(fh.read()).hexdigest()
+      manifest.append({"path": os.path.relpath(p, root), "bytes": st.st_size, "md5": h})
+    except Exception as e:
+      manifest.append({"path": os.path.relpath(p, root), "error": str(e)})
+manifest.sort(key=lambda x: x.get("path",""))
+out = os.path.join(root, "snapshot_manifest.json")
+with open(out, "w", encoding="utf-8") as fh:
+  json.dump(manifest, fh, indent=2, ensure_ascii=False)
+print(f"Wrote {out} with {len(manifest)} items")
+"@
+          python -c $py
 
       - name: Upload CI artifact bundle
         uses: actions/upload-artifact@v4
@@ -203,4 +202,4 @@ jobs:
           name: planning-engine-step1-artifacts
           path: ci_artifacts
           if-no-files-found: warn
-          retention-days: 14git add .
+          retention-days: 14
