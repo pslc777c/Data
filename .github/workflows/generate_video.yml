@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       layer:
-        description: "Layer(s) to run: empty=all, or e.g. ml2, or 'bronze,silver'"
+        description: "Layer(s) to run: empty=all, or e.g. ml2 or 'bronze,silver'"
         required: false
         default: ""
       step:
@@ -12,21 +12,19 @@ on:
         required: false
         default: ""
       force:
-        description: "Force re-run (ignore skip)"
+        description: "Force re-run (true/false)"
         required: false
-        type: boolean
-        default: false
+        default: "false"
       use_sample_data:
-        description: "Use sample data strategy in CI (recommended)"
+        description: "Use sample data strategy in CI (true/false)"
         required: false
-        type: boolean
-        default: true
+        default: "true"
 
   push:
     branches: [ "main" ]
     paths:
-      - "src/**"
       - ".github/workflows/generate_video.yml"
+      - "src/**"
       - "requirements*.txt"
 
 permissions:
@@ -86,16 +84,17 @@ jobs:
           }
           python -c "import sys; print('Python', sys.version)"
 
-      - name: Prepare data folder
+      - name: Prepare data + artifacts folders
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path $env:CI_DATA_DIR | Out-Null
           New-Item -ItemType Directory -Force -Path $env:CI_ARTIFACTS_DIR | Out-Null
           New-Item -ItemType Directory -Force -Path (Join-Path $env:CI_ARTIFACTS_DIR "snapshot") | Out-Null
           Write-Host "Data dir ready: $($env:CI_DATA_DIR)"
+          Write-Host "Artifacts dir ready: $($env:CI_ARTIFACTS_DIR)"
 
       - name: (Optional) Restore sample data cache
-        if: ${{ inputs.use_sample_data }}
+        if: ${{ inputs.use_sample_data == 'true' }}
         uses: actions/cache@v4
         with:
           path: data
@@ -103,8 +102,8 @@ jobs:
           restore-keys: |
             sample-data-${{ runner.os }}-
 
-      - name: (Optional) Inject minimal folder structure
-        if: ${{ inputs.use_sample_data }}
+      - name: (Optional) Inject minimal folder structure (no real data)
+        if: ${{ inputs.use_sample_data == 'true' }}
         shell: powershell
         run: |
           $dirs = @(
@@ -121,9 +120,14 @@ jobs:
         shell: powershell
         run: |
           $cmd = "python -m src.ops.runner"
-          if ("${{ inputs.layer }}".Length -gt 0) { $cmd += " --layer ${{ inputs.layer }}" }
-          if ("${{ inputs.step }}".Length -gt 0)  { $cmd += " --step ${{ inputs.step }}" }
-          if ("${{ inputs.force }}" -eq "true")   { $cmd += " --force" }
+
+          $layer = "${{ inputs.layer }}"
+          if ($layer.Length -gt 0) { $cmd += " --layer $layer" }
+
+          $step = "${{ inputs.step }}"
+          if ($step.Length -gt 0) { $cmd += " --step $step" }
+
+          if ("${{ inputs.force }}" -eq "true") { $cmd += " --force" }
 
           Write-Host "Running: $cmd"
           iex $cmd
@@ -131,7 +135,6 @@ jobs:
       - name: Mark run status
         shell: powershell
         run: |
-          New-Item -ItemType Directory -Force -Path $env:CI_ARTIFACTS_DIR | Out-Null
           if ("${{ steps.run_pipeline.outcome }}" -eq "success") {
             "SUCCESS" | Out-File -Encoding ascii -FilePath (Join-Path $env:CI_ARTIFACTS_DIR "pipeline_status.txt")
           } else {
@@ -140,14 +143,12 @@ jobs:
           Write-Host "Outcome: ${{ steps.run_pipeline.outcome }}"
           Get-Content (Join-Path $env:CI_ARTIFACTS_DIR "pipeline_status.txt")
 
-      - name: Collect logs (run_logs)
+      - name: Collect run_logs (src/run_logs)
         shell: powershell
         run: |
-          $dest = Join-Path $env:CI_ARTIFACTS_DIR "run_logs"
-          New-Item -ItemType Directory -Force -Path $dest | Out-Null
-
+          $dest = Join-Path $env:CI_ARTIFACTS_DIR "run_logs_src"
           if (Test-Path $env:CI_RUN_LOGS_DIR) {
-            Copy-Item -Recurse -Force $env:CI_RUN_LOGS_DIR (Join-Path $env:CI_ARTIFACTS_DIR "run_logs_src")
+            Copy-Item -Recurse -Force $env:CI_RUN_LOGS_DIR $dest
           } else {
             "No run_logs dir found." | Out-File -Encoding utf8 -FilePath (Join-Path $env:CI_ARTIFACTS_DIR "run_logs_missing.txt")
           }
