@@ -55,3 +55,7 @@ src/**/artifacts/
 # Allow CI helper scripts
 !scripts/
 !scripts/*.py
+
+# Allow CI requirements
+!requirements-ci.txt
+
