@@ -75,17 +75,27 @@ jobs:
           restore-keys: |
             pip-${{ runner.os }}-
 
-      - name: Install dependencies (runner Python)
+      - name: Install dependencies (user site-packages)
         shell: powershell
         run: |
           python -c "import sys; print('PY EXE =', sys.executable)"
-          python -m pip install --upgrade pip
-          if (Test-Path "requirements-ci.txt") {
-            python -m pip install -r requirements-ci.txt
-          } else {
-            python -m pip install -r requirements.txt
-          }
+          python -m pip --version
+          python -m pip install --user -r requirements-ci.txt
           python -c "import yaml; print('PyYAML OK', yaml.__version__)"
+
+      - name: Add user Python Scripts to PATH
+        shell: powershell
+        run: |
+          $userScripts = Join-Path $env:APPDATA "Python\Python312\Scripts"
+          $userSite    = Join-Path $env:APPDATA "Python\Python312\site-packages"
+          Write-Host "UserScripts=$userScripts"
+          Write-Host "UserSite=$userSite"
+          echo $userScripts | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Verify imports
+        shell: powershell
+        run: |
+          python -c "import yaml, pandas, pyarrow; print('Imports OK')"
 
       - name: Prepare data + artifacts folders
         shell: powershell
