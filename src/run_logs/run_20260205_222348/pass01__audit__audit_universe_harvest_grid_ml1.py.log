@@ -1,0 +1,15 @@
+
+==============================================================================================================
+[2026-02-05 22:28:31] PASS 01 | RUN: audit\audit_universe_harvest_grid_ml1.py
+CMD: C:\Data-LakeHouse\venv\Scripts\python.exe C:\Data-LakeHouse\src\audit\audit_universe_harvest_grid_ml1.py
+CWD: C:\Data-LakeHouse
+==============================================================================================================
+OK -> data\audit\audit_universe_harvest_grid_ml1_checks.parquet
+OK -> data\audit\audit_universe_harvest_grid_ml1_summary.json
+[AUDIT] dup_count_key_dia=0 dup_rate=0.000000
+
+--- RESULT ---
+[2026-02-05 22:28:32] EXIT_CODE=0 | SECONDS=0.76
+LOG: C:\Data-LakeHouse\src\run_logs\run_20260205_222348\pass01__audit__audit_universe_harvest_grid_ml1.py.log
+--------------
+

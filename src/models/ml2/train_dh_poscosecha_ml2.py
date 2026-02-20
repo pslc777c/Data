@@ -55,12 +55,54 @@ def _make_ohe_dense() -> OneHotEncoder:
         return OneHotEncoder(handle_unknown="ignore", sparse=False)
 
 
+def _ensure_cols(df: pd.DataFrame, cols: list[str], fill_value) -> pd.DataFrame:
+    """
+    Si falta una columna, la crea con fill_value.
+    """
+    out = df.copy()
+    for c in cols:
+        if c not in out.columns:
+            out[c] = fill_value
+    return out
+
+
+def _prepare_X(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    FIX CLAVE:
+    - NUM_COLS: fuerza numeric (coerce -> NaN)
+    - CAT_COLS: fuerza string limpio + fillna('UNKNOWN')
+    Esto evita que SimpleImputer reciba arrays con dtype incorrecto
+    (p.ej. float con strings como 'BLANCO') y reviente.
+    """
+    df = df.copy()
+
+    # asegurar columnas existen
+    df = _ensure_cols(df, NUM_COLS, pd.NA)
+    df = _ensure_cols(df, CAT_COLS, "UNKNOWN")
+
+    # num -> numeric
+    for c in NUM_COLS:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+
+    # cat -> string limpio
+    for c in CAT_COLS:
+        # string dtype (pandas) + normalize
+        s = df[c].astype("string")
+        s = s.str.strip()
+        s = s.fillna("UNKNOWN")
+        # opcional: evitar vacíos
+        s = s.replace("", "UNKNOWN")
+        df[c] = s
+
+    return df[NUM_COLS + CAT_COLS]
+
+
 def main() -> None:
     df = read_parquet(IN_DS).copy()
     df.columns = [str(c).strip() for c in df.columns]
 
     # Train solo donde hay real
-    m = df["dh_real"].notna() & df["dh_ml1"].notna() & df[TARGET].notna()
+    m = df.get("dh_real").notna() & df.get("dh_ml1").notna() & df.get(TARGET).notna()
     tr = df.loc[m].copy()
     if tr.empty:
         raise ValueError("No hay filas con real para entrenar DH ML2.")
@@ -82,27 +124,26 @@ def main() -> None:
         val_df = tr.tail(n_val).copy()
         train_df = tr.iloc[: max(n - n_val, 1)].copy()
 
-    # asegurar features
-    for c in NUM_COLS:
-        if c not in tr.columns:
-            train_df[c] = pd.NA
-            val_df[c] = pd.NA
-    for c in CAT_COLS:
-        if c not in tr.columns:
-            train_df[c] = "UNKNOWN"
-            val_df[c] = "UNKNOWN"
-
-    X_train = train_df[NUM_COLS + CAT_COLS]
+    # === X/y/w (con casteo robusto) ===
+    X_train = _prepare_X(train_df)
     y_train = pd.to_numeric(train_df[TARGET], errors="coerce")
 
     w_train = pd.to_numeric(train_df.get(WEIGHT_COL), errors="coerce").fillna(0.0).values.astype(float)
     w_train = np.where(w_train <= 0, 1.0, w_train)
 
-    X_val = val_df[NUM_COLS + CAT_COLS]
+    X_val = _prepare_X(val_df)
     y_val = pd.to_numeric(val_df[TARGET], errors="coerce")
 
     w_val = pd.to_numeric(val_df.get(WEIGHT_COL), errors="coerce").fillna(0.0).values.astype(float)
     w_val = np.where(w_val <= 0, 1.0, w_val)
+
+    # Debug mínimo (útil para el video)
+    print("[DBG] X_train dtypes:")
+    print(X_train.dtypes)
+    for c in CAT_COLS:
+        if c in X_train.columns:
+            sample_vals = X_train[c].dropna().astype(str).unique()[:5]
+            print(f"[DBG] cat sample {c}={sample_vals}")
 
     pre = ColumnTransformer(
         transformers=[
@@ -111,7 +152,7 @@ def main() -> None:
             ]), NUM_COLS),
             ("cat", Pipeline(steps=[
                 ("imputer", SimpleImputer(strategy="most_frequent")),
-                ("ohe", _make_ohe_dense()),  # <-- FIX: denso
+                ("ohe", _make_ohe_dense()),  # denso
             ]), CAT_COLS),
         ],
         remainder="drop",
@@ -128,6 +169,7 @@ def main() -> None:
 
     pipe = Pipeline(steps=[("pre", pre), ("model", model)])
 
+    # Fit con sample_weight
     pipe.fit(X_train, y_train, model__sample_weight=w_train)
 
     pred_tr = pipe.predict(X_train)
@@ -159,7 +201,7 @@ def main() -> None:
         "features_cat": CAT_COLS,
         "split": {"type": "time", "val_window_days": 56},
         "metrics": {"mae_train_days": float(mae_tr), "mae_val_days": float(mae_va)},
-        "note": "OHE forced dense for HistGradientBoostingRegressor compatibility",
+        "note": "Forced dtypes: num->numeric, cat->string + fillna('UNKNOWN'); OHE dense for HGBR",
     }
 
     with open(out_meta, "w", encoding="utf-8") as f:

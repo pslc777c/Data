@@ -1,0 +1,14 @@
+
+==============================================================================================================
+[2026-02-05 22:23:51] PASS 01 | RUN: gold\build_ds_harvest_horizon_ml2_v2.py
+CMD: C:\Data-LakeHouse\venv\Scripts\python.exe C:\Data-LakeHouse\src\gold\build_ds_harvest_horizon_ml2_v2.py
+CWD: C:\Data-LakeHouse
+==============================================================================================================
+[OK] Wrote dataset: C:\Data-LakeHouse\data\gold\ml2_datasets\ds_harvest_horizon_ml2_v2.parquet
+     rows=50,771 cycles=513 as_of_dates=631
+
+--- RESULT ---
+[2026-02-05 22:24:33] EXIT_CODE=0 | SECONDS=41.63
+LOG: C:\Data-LakeHouse\src\run_logs\run_20260205_222348\pass01__gold__build_ds_harvest_horizon_ml2_v2.py.log
+--------------
+

@@ -1,0 +1,11 @@
+[2026-02-20 09:30:00] STEP ml2:apply_share_grado_ml2
+script=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\models\ml2\apply_share_grado_ml2.py
+cmd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\venv\Scripts\python.exe C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\models\ml2\apply_share_grado_ml2.py --mode prod
+cwd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse
+PYTHONPATH=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse;C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src
+OPS_ARTIFACTS_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data
+OPS_LOG_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_092753
+outputs: (none) => no-skip mode
+
+[OK] PROD factor: C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\gold\factors\factor_ml2_share_grado.parquet rows=292,935
+[OK] PROD final : C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\gold\pred_tallos_grado_dia_ml2_final.parquet rows=292,935

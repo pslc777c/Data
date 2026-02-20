@@ -1,0 +1,10 @@
+[DRY RUN]
+[2026-02-20 08:15:28] STEP ml2:build_ds_peso_tallo_ml2_v1
+script=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\gold\build_ds_peso_tallo_ml2_v1.py
+cmd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\venv\Scripts\python.exe C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\gold\build_ds_peso_tallo_ml2_v1.py
+cwd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse
+PYTHONPATH=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse;C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src
+OPS_ARTIFACTS_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data
+OPS_LOG_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_081528
+outputs: (none) => no-skip mode
+

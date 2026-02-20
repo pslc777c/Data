@@ -1,0 +1,60 @@
+
+==============================================================================================================
+[2026-02-05 22:28:22] PASS 01 | RUN: audit\audit_ml1_curva_clipping_impact.py
+CMD: C:\Data-LakeHouse\venv\Scripts\python.exe C:\Data-LakeHouse\src\audit\audit_ml1_curva_clipping_impact.py
+CWD: C:\Data-LakeHouse
+==============================================================================================================
+C:\Data-LakeHouse\src\audit\audit_ml1_curva_clipping_impact.py:188: FutureWarning: The default of observed=False is deprecated and will be changed to True in a future version of pandas. Pass observed=False to retain current behavior or observed=True to adopt the future default and silence this warning.
+  .groupby(["rel_pos_bin", "rel_pos_bin_lo", "rel_pos_bin_hi"], dropna=False)
+
+=== CLIPPING REPORT (global) ===
+                      created_at  rows  raw_notna_rate  factor_notna_rate  clipped_rate_raw_vs_factor  was_capped_pre_rate  was_capped_post_rate  min_hit_rate_factor  max_hit_rate_factor  raw_p01  raw_p50  raw_p99  factor_p01  factor_p50  factor_p99  l1_share_pred_vs_final_median  l1_share_pred_vs_final_p90
+2026-02-06 03:28:22.672668+00:00 25686             1.0                1.0                    0.148135                  0.0                   0.0             0.148135                  0.0  0.05361 0.997283 2.262723         0.2    0.997283    2.262723                       0.103091                    0.137195
+
+=== CLIPPING BY REL_POS (top 12 bins by clipped_rate) ===
+   rel_pos_bin rel_pos_bin_lo rel_pos_bin_hi  rows  clipped_rate  cap_pre_rate  cap_post_rate  min_hit_rate  max_hit_rate  raw_p50  raw_p95  factor_p50  factor_p95
+(-0.001, 0.05]         -0.001           0.05  1002      0.853293           0.0            0.0      0.853293           0.0 0.087151 0.499719    0.200000    0.499719
+   (0.05, 0.1]          0.050           0.10  1296      0.687500           0.0            0.0      0.687500           0.0 0.137512 0.640611    0.200000    0.640611
+   (0.95, 1.0]          0.950           1.00  1598      0.576345           0.0            0.0      0.576345           0.0 0.173928 0.512237    0.200000    0.512237
+   (0.1, 0.15]          0.100           0.15  1262      0.420761           0.0            0.0      0.420761           0.0 0.232303 0.906360    0.232303    0.906360
+   (0.9, 0.95]          0.900           0.95  1272      0.223270           0.0            0.0      0.223270           0.0 0.353558 0.815002    0.353558    0.815002
+   (0.15, 0.2]          0.150           0.20  1339      0.153846           0.0            0.0      0.153846           0.0 0.399597 1.257007    0.399597    1.257007
+   (0.85, 0.9]          0.850           0.90  1286      0.045879           0.0            0.0      0.045879           0.0 0.593921 1.190810    0.593921    1.190810
+   (0.2, 0.25]          0.200           0.25  1302      0.028418           0.0            0.0      0.028418           0.0 0.616446 1.530465    0.616446    1.530465
+   (0.8, 0.85]          0.800           0.85  1233      0.010543           0.0            0.0      0.010543           0.0 0.866818 1.432298    0.866818    1.432298
+   (0.75, 0.8]          0.750           0.80  1256      0.003981           0.0            0.0      0.003981           0.0 1.117847 1.666260    1.117847    1.666260
+   (0.25, 0.3]          0.250           0.30  1220      0.002459           0.0            0.0      0.002459           0.0 0.876325 1.732596    0.876325    1.732596
+   (0.45, 0.5]          0.450           0.50  1444      0.000000           0.0            0.0      0.000000           0.0 1.730246 2.209614    1.730246    2.209614
+
+=== TOP 20 CYCLES (most clipped days) ===
+                                ciclo_id  days  clipped_days  clipped_rate  cap_pre_days  cap_post_days  min_hit_days  max_hit_days  raw_max  raw_p95  factor_max  factor_p95  l1_share_pred_vs_final
+41db16cf2cddd2128d98d2a7f525e8b3525396fd    50            16      0.320000             0              0            16             0 2.470132 2.403324    2.470132    2.403324                0.105189
+a3ee7f8b4c35e5c24086c8907446cb5a876e63be    55            16      0.290909             0              0            16             0 2.817749 2.590317    2.817749    2.590317                0.083716
+b4a00685fd44d00bb2eced38fcd88bb1f725a496    56            15      0.267857             0              0            15             0 2.229359 2.149438    2.229359    2.149438                0.101211
+9e7b18018d373a58ff05fced1cef6ef3713eecac    49            14      0.285714             0              0            14             0 2.463115 2.287776    2.463115    2.287776                0.090789
+a6f75eb92eb7b78f1e7128ff887031794cdcc39d    45            13      0.288889             0              0            13             0 2.891725 2.730825    2.891725    2.730825                0.110417
+79739738beebf85abead5f9b3ba0b247cc2ef3be    47            13      0.276596             0              0            13             0 2.463946 2.424432    2.463946    2.424432                0.097966
+6baa58cb7d8849e221c95ed88a9780aa8c3f265f    47            13      0.276596             0              0            13             0 2.169629 2.037028    2.169629    2.037028                0.102456
+80f37e0028e7d1a3e062fa744bfc7acf34c5481d    50            13      0.260000             0              0            13             0 2.542757 2.430557    2.542757    2.430557                0.081646
+6115495e77ee23aba267354f9ec7e22032ff80b7    51            13      0.254902             0              0            13             0 2.698499 2.524821    2.698499    2.524821                0.085864
+2d93b1a533a45a1c8f85d188021b6d1eecd42a4c    51            13      0.254902             0              0            13             0 2.572900 2.430324    2.572900    2.430324                0.089538
+9ee9b1e7ddfd2c3e9713be9e258323771a3400be    51            13      0.254902             0              0            13             0 2.276106 2.160505    2.276106    2.160505                0.087707
+9efc2b2b2ccddbd9990c13d19c9a4506e59828d9    51            13      0.254902             0              0            13             0 2.163748 2.088712    2.163748    2.088712                0.117242
+5759ccdef6507d31a295c1b23ace84def9122951    52            13      0.250000             0              0            13             0 2.341404 2.214327    2.341404    2.214327                0.094328
+e40b26192a604e4be0429390609df092bae78934    42            12      0.285714             0              0            12             0 2.009116 1.963265    2.009116    1.963265                0.116759
+13166301b95e6a6ed45529d975c81fde7ffca50d    47            12      0.255319             0              0            12             0 2.643774 2.506965    2.643774    2.506965                0.084947
+fcd709d41cec8a2e75fadd0dca59b0dad4bd6388    47            12      0.255319             0              0            12             0 2.122979 2.086071    2.122979    2.086071                0.139906
+6019472f563b2bdffc892228c3d0ddccb7869551    48            12      0.250000             0              0            12             0 2.185899 2.074630    2.185899    2.074630                0.125352
+29bc7c8db0678b1708a89cfa0b10df83a545b42a    48            12      0.250000             0              0            12             0 2.073117 1.976291    2.073117    1.976291                0.141493
+a6c8b16ae18ef04654c13b0a339e86e081a3a588    48            12      0.250000             0              0            12             0 2.048271 2.009140    2.048271    2.009140                0.102756
+cec7755055cbef6620dbc81bdc45a68d06ec9533    49            12      0.244898             0              0            12             0 2.141638 2.083999    2.141638    2.083999                0.149403
+
+OK -> data\audit\audit_ml1_curva_clipping_report.parquet
+OK -> data\audit\audit_ml1_curva_clipping_by_relpos.parquet
+OK -> data\audit\audit_ml1_curva_clipping_by_cycle.parquet
+
+--- RESULT ---
+[2026-02-05 22:28:23] EXIT_CODE=0 | SECONDS=1.44
+LOG: C:\Data-LakeHouse\src\run_logs\run_20260205_222348\pass01__audit__audit_ml1_curva_clipping_impact.py.log
+--------------
+

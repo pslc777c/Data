@@ -31,7 +31,11 @@ def _to_date(s: pd.Series) -> pd.Series:
 
 
 def _canon_int(s: pd.Series) -> pd.Series:
-    return pd.to_numeric(s, errors="coerce").astype("Int64")
+    # compat con pandas viejos: Int64 puede no existir como dtype en algunos entornos raros
+    try:
+        return pd.to_numeric(s, errors="coerce").astype("Int64")
+    except TypeError:
+        return pd.to_numeric(s, errors="coerce")
 
 
 def _canon_str(s: pd.Series) -> pd.Series:
@@ -42,6 +46,32 @@ def _require(df: pd.DataFrame, cols: list[str], name: str) -> None:
     miss = [c for c in cols if c not in df.columns]
     if miss:
         raise ValueError(f"{name}: faltan columnas {miss}. Disponibles={list(df.columns)}")
+
+
+def _pick_first(df: pd.DataFrame, cands: list[str]) -> str | None:
+    for c in cands:
+        if c in df.columns:
+            return c
+    return None
+
+
+def _ensure_bloque_base(df: pd.DataFrame, name: str) -> pd.DataFrame:
+    """
+    Normaliza bloque_base:
+      - si existe bloque_base, ok
+      - si no, intenta con bloque
+      - si no, intenta con bloque_padre
+    """
+    out = df.copy()
+    if "bloque_base" in out.columns:
+        return out
+
+    c = _pick_first(out, ["bloque", "bloque_padre"])
+    if c is None:
+        raise ValueError(f"{name}: no existe bloque_base ni bloque/bloque_padre. Cols={list(out.columns)}")
+
+    out["bloque_base"] = out[c]
+    return out
 
 
 def _load_var_map() -> dict[str, str]:
@@ -71,9 +101,9 @@ def _ensure_relpos(uni: pd.DataFrame) -> pd.DataFrame:
     if "rel_pos" not in out.columns and "rel_pos_pred" in out.columns:
         out["rel_pos"] = pd.to_numeric(out["rel_pos_pred"], errors="coerce")
     if "day_in_harvest" not in out.columns and "day_in_harvest_pred" in out.columns:
-        out["day_in_harvest"] = pd.to_numeric(out["day_in_harvest_pred"], errors="coerce").astype("Int64")
+        out["day_in_harvest"] = pd.to_numeric(out["day_in_harvest_pred"], errors="coerce")
     if "n_harvest_days" not in out.columns and "n_harvest_days_pred" in out.columns:
-        out["n_harvest_days"] = pd.to_numeric(out["n_harvest_days_pred"], errors="coerce").astype("Int64")
+        out["n_harvest_days"] = pd.to_numeric(out["n_harvest_days_pred"], errors="coerce")
     return out
 
 
@@ -136,7 +166,7 @@ def _cycle_shape_metrics(sub: pd.DataFrame) -> dict:
 # =========================
 def main() -> None:
     AUDIT_DIR.mkdir(parents=True, exist_ok=True)
-    created_at = pd.Timestamp.utcnow()
+    created_at = pd.Timestamp.now("UTC")  # ✅ reemplaza utcnow (warning pandas4)
     var_map = _load_var_map()
 
     # ---------- Load
@@ -178,7 +208,8 @@ def main() -> None:
     dist["grado"] = _canon_int(dist["grado"])
     dist_day_k = dist[key].drop_duplicates()
 
-    # ---------- Canon OFERTA (baseline)
+    # ---------- Canon OFERTA (baseline)  ✅ FIX bloque_base
+    oferta = _ensure_bloque_base(oferta, "pred_oferta_dia")  # ✅ crea bloque_base desde bloque
     _require(oferta, ["ciclo_id", "fecha", "bloque_base", "tallos_pred"], "pred_oferta_dia")
     oferta["ciclo_id"] = oferta["ciclo_id"].astype(str)
     oferta["fecha"] = _to_date(oferta["fecha"])
@@ -186,6 +217,7 @@ def main() -> None:
     if "stage" in oferta.columns:
         oferta["stage"] = _canon_str(oferta["stage"])
         oferta = oferta[oferta["stage"].eq("HARVEST")].copy()
+
     # variedad_canon
     if "variedad_canon" in oferta.columns:
         oferta["variedad_canon"] = _canon_str(oferta["variedad_canon"])
@@ -200,13 +232,17 @@ def main() -> None:
     # ---------- Canon PROG (real)
     has_prog = (len(prog) > 0)
     if has_prog:
+        prog = _ensure_bloque_base(prog, "dim_cosecha_progress_bloque_fecha")  # ✅ por si prog viene como bloque
         _require(prog, ["ciclo_id", "fecha", "bloque_base", "variedad", "tallos_real_dia"], "dim_cosecha_progress_bloque_fecha")
         prog["ciclo_id"] = prog["ciclo_id"].astype(str)
         prog["fecha"] = _to_date(prog["fecha"])
         prog["bloque_base"] = _canon_int(prog["bloque_base"])
         prog["variedad_canon"] = _canon_var_from_col(prog, "variedad", var_map)
         prog["tallos_real_dia"] = pd.to_numeric(prog["tallos_real_dia"], errors="coerce")
-        prog_k = prog[key + ["tallos_real_dia", "pct_avance_real"]].drop_duplicates(subset=key)
+        extra_cols = ["pct_avance_real"] if "pct_avance_real" in prog.columns else []
+        prog_k = prog[key + ["tallos_real_dia"] + extra_cols].drop_duplicates(subset=key)
+        if "pct_avance_real" not in prog_k.columns:
+            prog_k["pct_avance_real"] = np.nan
     else:
         prog_k = pd.DataFrame(columns=key + ["tallos_real_dia", "pct_avance_real"])
 
@@ -311,9 +347,6 @@ def main() -> None:
     # =========================
     # 3) SHAPE vs REAL (curve)
     # =========================
-    # We approximate ML1 share from final output:
-    # share_ml1_day = tallos_pred_ml1_dia / sum_cycle(tallos_pred_ml1_dia)
-    # share_real_day = tallos_real_dia / sum_cycle(tallos_real_dia)
     day_panel = day_chk.merge(
         uni.drop_duplicates(subset=g_day)[g_day + [c for c in ["rel_pos", "day_in_harvest", "n_harvest_days", "month"] if c in uni.columns]],
         on=g_day,
@@ -338,19 +371,17 @@ def main() -> None:
     for cid, sub in day_panel.groupby("ciclo_id", dropna=False):
         m = _cycle_shape_metrics(sub)
         m["ciclo_id"] = cid
-        # tags for segmentation
         v = sub["variedad_canon"].dropna()
         m["variedad_canon"] = v.iloc[0] if len(v) else pd.NA
         b = sub["bloque_base"].dropna()
         m["bloque_base"] = b.iloc[0] if len(b) else pd.NA
-        mo = sub["month"].dropna() if "month" in sub.columns else pd.Series([], dtype="Int64")
-        m["month"] = int(mo.iloc[0]) if len(mo) else pd.NA
+        mo = sub["month"].dropna() if "month" in sub.columns else pd.Series([], dtype=object)
+        m["month"] = int(mo.iloc[0]) if len(mo) and pd.notna(mo.iloc[0]) else pd.NA
         cyc_metrics.append(m)
 
     cyc_shape = pd.DataFrame(cyc_metrics)
     write_parquet(cyc_shape, AUDIT_DIR / "shape_cycle.parquet")
 
-    # segmentation summary (only where has_real)
     with_real = cyc_shape[cyc_shape["has_real"].eq(1)].copy()
     seg_rows = []
     if len(with_real):

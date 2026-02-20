@@ -1,0 +1,10 @@
+C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\audit\audit_ml1_curva_share_vs_real.py:118: Pandas4Warning: Timestamp.utcnow is deprecated and will be removed in a future version. Use Timestamp.now('UTC') instead.
+  created_at = pd.Timestamp.utcnow()
+Traceback (most recent call last):
+  File "C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\audit\audit_ml1_curva_share_vs_real.py", line 271, in <module>
+    main()
+  File "C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\audit\audit_ml1_curva_share_vs_real.py", line 151, in main
+    _require(oferta, ["ciclo_id", "fecha", "bloque_base", "stage", "tallos_pred"], "oferta")
+  File "C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\audit\audit_ml1_curva_share_vs_real.py", line 46, in _require
+    raise ValueError(f"{name}: faltan columnas {miss}. Cols={list(df.columns)}")
+ValueError: oferta: faltan columnas ['bloque_base']. Cols=['ciclo_id', 'fecha', 'bloque', 'bloque_padre', 'variedad', 'tipo_sp', 'area', 'estado', 'stage', 'harvest_start', 'harvest_end_eff', 'n_harvest_days', 'tallos_proy', 'tallos_pred', 'created_at']

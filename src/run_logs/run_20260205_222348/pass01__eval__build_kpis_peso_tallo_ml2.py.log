@@ -1,0 +1,21 @@
+
+==============================================================================================================
+[2026-02-05 22:28:04] PASS 01 | RUN: eval\build_kpis_peso_tallo_ml2.py
+CMD: C:\Data-LakeHouse\venv\Scripts\python.exe C:\Data-LakeHouse\src\eval\build_kpis_peso_tallo_ml2.py
+CWD: C:\Data-LakeHouse
+==============================================================================================================
+[OK] Wrote global: C:\Data-LakeHouse\data\eval\ml2\ml2_peso_tallo_eval_global.parquet
+ n_rows  n_cycles  mae_ml1_g  mae_ml2_g  wape_wt_ml1_g  wape_wt_ml2_g  kg_abs_err_ml1  kg_abs_err_ml2  improvement_abs_mae_g  improvement_abs_wape_wt_g  improvement_abs_kg created_at
+  29792       551   6.496862   3.764167        5.54592       3.255262   413508.907924   242715.310472               2.732695                   2.290658       170793.597452 2026-02-05
+
+[OK] Wrote ratio : C:\Data-LakeHouse\data\eval\ml2\ml2_peso_tallo_eval_ratio_dist.parquet
+    n  ratio_min  ratio_p05  ratio_p25  ratio_median  ratio_p75  ratio_p95  ratio_max created_at
+29792   0.578606   0.783226   0.920956      1.018075   1.184289   1.443729   2.225541 2026-02-05
+
+[OK] Wrote estado: C:\Data-LakeHouse\data\eval\ml2\ml2_peso_tallo_eval_by_estado.parquet rows=0
+
+--- RESULT ---
+[2026-02-05 22:28:06] EXIT_CODE=0 | SECONDS=1.36
+LOG: C:\Data-LakeHouse\src\run_logs\run_20260205_222348\pass01__eval__build_kpis_peso_tallo_ml2.py.log
+--------------
+

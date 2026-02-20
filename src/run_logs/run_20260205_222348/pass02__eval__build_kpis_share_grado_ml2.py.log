@@ -1,0 +1,32 @@
+
+==============================================================================================================
+[2026-02-05 22:29:10] PASS 02 | RUN: eval\build_kpis_share_grado_ml2.py
+CMD: C:\Data-LakeHouse\venv\Scripts\python.exe C:\Data-LakeHouse\src\eval\build_kpis_share_grado_ml2.py
+CWD: C:\Data-LakeHouse
+==============================================================================================================
+[OK] Wrote global: C:\Data-LakeHouse\data\eval\ml2\ml2_share_grado_eval_global.parquet
+ n_rows  n_cycles  mae_share_ml1  mae_share_ml2  wape_share_ml1_wt_day  wape_share_ml2_wt_day  mae_abs_tallos_ml1  mae_abs_tallos_ml2  improvement_abs_mae_share  improvement_abs_mae_abs_tallos created_at
+  29046       550       0.348666        0.33967                0.27848                0.26807         2078.186686         2010.582039                   0.008995                       67.604646 2026-02-05
+
+[OK] Wrote by_grado: C:\Data-LakeHouse\data\eval\ml2\ml2_share_grado_eval_by_grado.parquet rows=13
+grado  n_rows  mae_share_ml1  mae_share_ml2  wape_share_ml1_wt_day  wape_share_ml2_wt_day  mae_abs_tallos_ml1  mae_abs_tallos_ml2  improvement_abs_mae_share
+   35    4398       0.354810       0.341023               0.307416               0.290496         2593.460635         2479.888002                   0.013787
+   40    4248       0.349434       0.337796               0.303381               0.289342         2610.739748         2516.128877                   0.011638
+   30    3806       0.359633       0.349910               0.298257               0.288045         2287.797148         2205.819616                   0.009723
+   25    5612       0.310138       0.301051               0.211253               0.202749         1359.183386         1312.236126                   0.009087
+   45    3563       0.342931       0.334376               0.284225               0.273888         2339.888969         2262.008771                   0.008555
+   55    1759       0.360250       0.352919               0.279382               0.272995         1950.519303         1909.871945                   0.007330
+   75     800       0.620693       0.615153               0.390161               0.384798         1321.658755         1306.451716                   0.005540
+   50    2367       0.325030       0.320521               0.264675               0.259770         2051.864322         2008.230391                   0.004509
+   60    1000       0.350476       0.346647               0.277663               0.274194         1828.392863         1810.664454                   0.003829
+   65     776       0.349325       0.348431               0.263890               0.262975         1511.559683         1507.995520                   0.000893
+
+[OK] Wrote sanity: C:\Data-LakeHouse\data\eval\ml2\ml2_share_grado_eval_sanity.parquet
+ n_days  sum_share_min  sum_share_p25  sum_share_median  sum_share_p75  sum_share_max  pct_close_1pm_1e-6 created_at
+  23877            1.0            1.0               1.0            1.0            1.0                 1.0 2026-02-05
+
+--- RESULT ---
+[2026-02-05 22:29:13] EXIT_CODE=0 | SECONDS=2.90
+LOG: C:\Data-LakeHouse\src\run_logs\run_20260205_222348\pass02__eval__build_kpis_share_grado_ml2.py.log
+--------------
+

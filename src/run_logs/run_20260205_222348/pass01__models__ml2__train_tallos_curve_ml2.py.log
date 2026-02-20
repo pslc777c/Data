@@ -1,0 +1,16 @@
+
+==============================================================================================================
+[2026-02-05 22:27:13] PASS 01 | RUN: models\ml2\train_tallos_curve_ml2.py
+CMD: C:\Data-LakeHouse\venv\Scripts\python.exe C:\Data-LakeHouse\src\models\ml2\train_tallos_curve_ml2.py
+CWD: C:\Data-LakeHouse
+==============================================================================================================
+[OK] Model saved: C:\Data-LakeHouse\data\models\ml2\tallos_curve_ml2_20260205_222721_a86084d7.pkl
+[OK] Meta  saved: C:\Data-LakeHouse\data\models\ml2\tallos_curve_ml2_20260205_222721_a86084d7_meta.json
+[OK] Eval  saved: C:\Data-LakeHouse\data\eval\ml2\ml2_tallos_curve_train_cv.parquet
+     MAE log train=0.0157  val=0.0079  val_clipped=0.0076  pct_clip_val=0.840%
+
+--- RESULT ---
+[2026-02-05 22:27:22] EXIT_CODE=0 | SECONDS=9.03
+LOG: C:\Data-LakeHouse\src\run_logs\run_20260205_222348\pass01__models__ml2__train_tallos_curve_ml2.py.log
+--------------
+

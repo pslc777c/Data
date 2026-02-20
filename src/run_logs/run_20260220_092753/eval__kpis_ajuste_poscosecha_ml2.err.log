@@ -1,0 +1,4 @@
+C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\eval\build_kpis_ajuste_poscosecha_ml2.py:139: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  "created_at": pd.Timestamp(datetime.utcnow()).normalize(),
+C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\eval\build_kpis_ajuste_poscosecha_ml2.py:166: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  "created_at": pd.Timestamp(datetime.utcnow()).normalize(),

@@ -1,0 +1,12 @@
+[2026-02-20 10:08:36] STEP ml2:build_ds_tallos_curve_ml2_v2
+script=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\gold\build_ds_tallos_curve_ml2_v2.py
+cmd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\venv\Scripts\python.exe C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\gold\build_ds_tallos_curve_ml2_v2.py
+cwd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse
+PYTHONPATH=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse;C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src
+OPS_ARTIFACTS_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data
+OPS_LOG_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_100635
+outputs: (none) => no-skip mode
+
+[OK] Wrote dataset: C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\gold\ml2_datasets\ds_tallos_curve_ml2_v2.parquet
+     rows=24,352 cycles=623 fecha_range=[2024-03-17..2026-06-09]
+     pred_col_used=tallos_pred_ml1_grado_dia

@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\audit\audit_harvest_horizon_ml2.py", line 240, in <module>
+    main()
+  File "C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\audit\audit_harvest_horizon_ml2.py", line 109, in main
+    raise KeyError(
+KeyError: "No encuentro columna de horizonte real en fact_ciclo_maestro.\nCandidatos: n_harvest_days_real / n_harvest_days / harvest_horizon_days / harvest_horizon / horizon_days / window_days\ncols=['bloque', 'fecha_sp', 'tipo_sp', 'variedad', 'area', 'tallos_proy', 'fecha_inicio_cosecha', 'fecha_fin_cosecha', 'estado', 'bloque_base', 'bloque_padre', 'bloque_id', 'bloque_padre_id', 'variedad_id', 'ciclo_id']"

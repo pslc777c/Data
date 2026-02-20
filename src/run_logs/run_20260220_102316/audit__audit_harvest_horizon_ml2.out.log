@@ -1,0 +1,15 @@
+[2026-02-20 10:23:16] STEP audit:audit_harvest_horizon_ml2
+script=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\audit\audit_harvest_horizon_ml2.py
+cmd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\venv\Scripts\python.exe C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\audit\audit_harvest_horizon_ml2.py
+cwd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse
+PYTHONPATH=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse;C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src
+OPS_ARTIFACTS_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data
+OPS_LOG_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_102316
+outputs: (none) => no-skip mode
+
+
+=== AUDIT: HARVEST HORIZON ML2 ===
+[OK] Global:   C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\eval\ml2\audit_harvest_horizon_ml2_global_20260220_102317.parquet
+  n                              pred_file        pred_col_ml1         pred_col_ml2  mae_ml1_days  mae_ml2_days  bias_ml1_days  bias_ml2_days  improvement_abs_days                created_at
+513 pred_harvest_horizon_final_ml2.parquet n_harvest_days_pred n_harvest_days_final      4.366472      3.351124       0.152047       0.353463              1.015348 2026-02-20 00:00:00+00:00
+[OK] Examples: C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\eval\ml2\audit_harvest_horizon_ml2_examples_20260220_102317.parquet rows=20

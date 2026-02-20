@@ -1,0 +1,15 @@
+[2026-02-20 09:31:24] STEP ml2:build_pred_kg_cajas_ml2
+script=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\gold\build_pred_kg_cajas_ml2.py
+cmd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\venv\Scripts\python.exe C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\gold\build_pred_kg_cajas_ml2.py
+cwd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse
+PYTHONPATH=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse;C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src
+OPS_ARTIFACTS_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data
+OPS_LOG_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_092753
+outputs: (none) => no-skip mode
+
+[OK] Wrote: C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\gold\pred_kg_grado_dia_ml2_full.parquet rows=292948
+[OK] Wrote: C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\gold\pred_kg_dia_ml2_full.parquet rows=23877
+[OK] Wrote: C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\gold\pred_cajas_grado_dia_ml2_full.parquet rows=292948
+[OK] Wrote: C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\gold\pred_cajas_dia_ml2_full.parquet rows=23877
+     mode=backtest  tallos_col=tallos_final_grado_dia  peso_col=peso_tallo_final_g
+     kg_ml1_col=kg_ml1_grado_dia  cajas_ml1_col=cajas_ml1_grado_dia

@@ -1,0 +1,13 @@
+[2026-02-19 17:30:42] STEP ml2:train_dh_poscosecha_ml2
+script=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\models\ml2\train_dh_poscosecha_ml2.py
+cmd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\venv\Scripts\python.exe C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\models\ml2\train_dh_poscosecha_ml2.py
+cwd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse
+PYTHONPATH=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse;C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src
+OPS_ARTIFACTS_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data
+OPS_LOG_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260219_173042
+outputs(check):
+ - C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\models\ml2\dh_poscosecha_ml2_20260205_223043_de738657_meta.json
+ - C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\models\ml2\dh_poscosecha_ml2_20260205_234610_82b9cfed_meta.json
+ - C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\models\ml2\dh_poscosecha_ml2_20260205_223043_de738657.pkl
+ - C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\models\ml2\dh_poscosecha_ml2_20260205_234610_82b9cfed.pkl
+

@@ -1,0 +1,2 @@
+C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\models\ml2\apply_hidr_poscosecha_ml2.py:90: Pandas4Warning: Timestamp.utcnow is deprecated and will be removed in a future version. Use Timestamp.now('UTC') instead.
+  created_at = pd.Timestamp.utcnow()

@@ -1,0 +1,2 @@
+usage: apply_hidr_poscosecha_ml2.py [-h] [--mode {backtest}]
+apply_hidr_poscosecha_ml2.py: error: argument --mode: invalid choice: 'prod' (choose from 'backtest')

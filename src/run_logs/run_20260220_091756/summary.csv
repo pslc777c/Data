@@ -1,0 +1,2 @@
+layer,step,ok,skipped,seconds,returncode,stdout,stderr
+audit,audit_ml1_curva_share_vs_real,1,0,1.843,0,C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_091756\audit__audit_ml1_curva_share_vs_real.out.log,C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_091756\audit__audit_ml1_curva_share_vs_real.err.log

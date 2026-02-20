@@ -1,0 +1,16 @@
+
+==============================================================================================================
+[2026-02-05 22:25:41] PASS 01 | RUN: gold\build_pred_tallos_grado_dia_ml1.py
+CMD: C:\Data-LakeHouse\venv\Scripts\python.exe C:\Data-LakeHouse\src\gold\build_pred_tallos_grado_dia_ml1.py
+CWD: C:\Data-LakeHouse
+==============================================================================================================
+[WARN] curva no tiene ciclo_id tras el mapeo. Se generará salida sin ciclo_id (operable igual).
+OK -> data\gold\pred_tallos_grado_dia_ml1.parquet | rows=315,240
+coverage tallos_pred_baseline_dia notna: 1.0000
+sanity | abs(sum(grado)-total) p50/p95/max: 0.000000 / 0.000000 / 0.000000
+
+--- RESULT ---
+[2026-02-05 22:25:43] EXIT_CODE=0 | SECONDS=1.82
+LOG: C:\Data-LakeHouse\src\run_logs\run_20260205_222348\pass01__gold__build_pred_tallos_grado_dia_ml1.py.log
+--------------
+

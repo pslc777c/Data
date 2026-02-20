@@ -1,0 +1,69 @@
+[2026-02-20 09:42:25] STEP audit:audit_hidr_poscosecha_ml2
+script=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\audit\audit_hidr_poscosecha_ml2.py
+cmd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\venv\Scripts\python.exe C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\audit\audit_hidr_poscosecha_ml2.py
+cwd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse
+PYTHONPATH=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse;C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src
+OPS_ARTIFACTS_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data
+OPS_LOG_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_093837
+outputs: (none) => no-skip mode
+
+
+=== ML2 HIDR POSCOSECHA AUDIT ===
+KPI global parquet : C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\eval\ml2\audit_hidr_poscosecha_ml2_kpi_global_20260220_094226.parquet
+KPI por destino    : C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\eval\ml2\audit_hidr_poscosecha_ml2_kpi_by_destino_20260220_094226.parquet
+KPI por grado      : C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\eval\ml2\audit_hidr_poscosecha_ml2_kpi_by_grado_20260220_094226.parquet
+Ratio dist parquet : C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\eval\ml2\audit_hidr_poscosecha_ml2_ratio_dist_20260220_094226.parquet
+Examples 10x2      : C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\eval\ml2\audit_hidr_poscosecha_ml2_examples_10x2_20260220_094226.parquet
+
+--- KPI GLOBAL ---
+ n_rows  n_dates  mae_log_ml1_w  mae_log_ml2_w  median_ratio_ml1  median_ratio_ml2  p05_ratio_ml2  p95_ratio_ml2  improvement_abs_mae_log_w created_at
+ 103404      237       1.127849       1.125955          0.320152          0.319378       0.197687       0.500346                   0.001894 2026-02-20
+
+--- RATIO DIST ---
+     n  ratio_min  ratio_p05  ratio_p25  ratio_median  ratio_p75  ratio_p95  ratio_max created_at
+103404    -0.1579   0.197687   0.280677      0.319378   0.363953   0.500346   1.843447 2026-02-20
+
+--- KPI DESTINO ---
+  destino  n_rows  mae_log_ml1_w  mae_log_ml2_w  median_ratio_ml2  improvement_abs_mae_log_w
+ ARCOIRIS   11376       1.213560       1.206381          0.302118                   0.007179
+TINTURADO   19737       1.193248       1.189928          0.304150                   0.003320
+   BLANCO   72291       1.104119       1.103253          0.328910                   0.000866
+
+--- KPI GRADO (head) ---
+ grado  n_rows  mae_log_ml1_w  mae_log_ml2_w  median_ratio_ml2  improvement_abs_mae_log_w
+    15    1109       0.547657       0.543056          0.618583                   0.004601
+    30    8873       1.029565       1.025384          0.356636                   0.004181
+    40   13014       1.137612       1.134241          0.324261                   0.003371
+    45   14147       1.153906       1.150661          0.313413                   0.003246
+    20    5432       0.791606       0.789569          0.460378                   0.002037
+    25    6878       0.967291       0.965345          0.396445                   0.001947
+    60    6678       1.212310       1.210582          0.304717                   0.001728
+    50   10350       1.192699       1.191379          0.302073                   0.001320
+    65    6321       1.242072       1.241703          0.292945                   0.000369
+    55    7962       1.176044       1.175685          0.310874                   0.000359
+    75    5449       1.397571       1.398223          0.257771                  -0.000652
+    35   11302       1.092490       1.094087          0.325992                  -0.001597
+    70    5889       1.259367       1.262395          0.282423                  -0.003028
+
+--- EXAMPLES (10x2) ---
+     fecha fecha_post_pred_used  grado destino  factor_hidr_ml1  factor_hidr_final  factor_hidr_real  ratio_ml1  ratio_ml2         impr       wscore   sample_group
+2026-01-04           2026-01-11     30  BLANCO         1.607838           1.378166          0.694664   0.432048   0.504050  2583.341323 11481.944341 TOP_IMPROVE_10
+2026-01-04           2026-01-11     30  BLANCO         1.607838           1.378166          0.694664   0.432048   0.504050  2583.341323 11481.944341 TOP_IMPROVE_10
+2026-01-04           2026-01-11     30  BLANCO         1.607838           1.378166          0.694664   0.432048   0.504050  2583.341323 11481.944341 TOP_IMPROVE_10
+2026-01-04           2026-01-11     30  BLANCO         1.607838           1.378166          0.694664   0.432048   0.504050  2583.341323 11481.944341 TOP_IMPROVE_10
+2026-01-04           2026-01-11     30  BLANCO         1.607838           1.378166          0.694664   0.432048   0.504050  2583.341323 11481.944341 TOP_IMPROVE_10
+2026-01-04           2026-01-11     30  BLANCO         1.607838           1.378166          0.694664   0.432048   0.504050  2583.341323 11481.944341 TOP_IMPROVE_10
+2026-01-04           2026-01-11     30  BLANCO         1.607838           1.378166          0.694664   0.432048   0.504050  2583.341323 11481.944341 TOP_IMPROVE_10
+2026-01-04           2026-01-11     30  BLANCO         1.607838           1.378166          0.694664   0.432048   0.504050  2583.341323 11481.944341 TOP_IMPROVE_10
+2026-01-04           2026-01-11     30  BLANCO         1.607838           1.378166          0.694664   0.432048   0.504050  2583.341323 11481.944341 TOP_IMPROVE_10
+2026-01-04           2026-01-11     30  BLANCO         1.607838           1.378166          0.694664   0.432048   0.504050  2583.341323 11481.944341 TOP_IMPROVE_10
+2025-12-12           2025-12-19     30  BLANCO         1.560084           1.649660          0.568711   0.364539   0.344745 -2213.065153 42214.673845   TOP_WORSE_10
+2025-12-12           2025-12-19     30  BLANCO         1.560084           1.649660          0.568711   0.364539   0.344745 -2213.065153 42214.673845   TOP_WORSE_10
+2025-12-12           2025-12-19     30  BLANCO         1.560084           1.649660          0.568711   0.364539   0.344745 -2213.065153 42214.673845   TOP_WORSE_10
+2025-12-12           2025-12-19     30  BLANCO         1.560084           1.649660          0.568711   0.364539   0.344745 -2213.065153 42214.673845   TOP_WORSE_10
+2025-12-12           2025-12-19     30  BLANCO         1.560084           1.649660          0.568711   0.364539   0.344745 -2213.065153 42214.673845   TOP_WORSE_10
+2025-12-12           2025-12-19     30  BLANCO         1.560084           1.649660          0.568711   0.364539   0.344745 -2213.065153 42214.673845   TOP_WORSE_10
+2025-12-12           2025-12-19     30  BLANCO         1.560084           1.649660          0.568711   0.364539   0.344745 -2213.065153 42214.673845   TOP_WORSE_10
+2025-12-12           2025-12-19     30  BLANCO         1.560084           1.649660          0.568711   0.364539   0.344745 -2213.065153 42214.673845   TOP_WORSE_10
+2025-12-12           2025-12-19     30  BLANCO         1.560084           1.649660          0.568711   0.364539   0.344745 -2213.065153 42214.673845   TOP_WORSE_10
+2025-12-12           2025-12-19     30  BLANCO         1.560084           1.649660          0.568711   0.364539   0.344745 -2213.065153 42214.673845   TOP_WORSE_10

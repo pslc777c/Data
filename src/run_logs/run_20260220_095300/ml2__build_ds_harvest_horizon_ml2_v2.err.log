@@ -1,0 +1,13 @@
+Traceback (most recent call last):
+  File "C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\gold\build_ds_harvest_horizon_ml2_v2.py", line 298, in <module>
+    main()
+  File "C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\gold\build_ds_harvest_horizon_ml2_v2.py", line 268, in main
+    feats.append(_features_asof(clima, chunk[["ciclo_id", "bloque_base", "fecha_sp"]], pd.Timestamp(as_of_date)))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\gold\build_ds_harvest_horizon_ml2_v2.py", line 118, in _features_asof
+    m = base.merge(cl, on="bloque_base", how="left")
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\venv\Lib\site-packages\pandas\core\frame.py", line 12863, in merge
+    @Substitution("")
+
+KeyboardInterrupt

@@ -1,0 +1,2 @@
+layer,step,ok,skipped,seconds,returncode,stdout,stderr
+audit,audit_dh_poscosecha_ml2,1,0,1.408,0,C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_093821\audit__audit_dh_poscosecha_ml2.out.log,C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_093821\audit__audit_dh_poscosecha_ml2.err.log

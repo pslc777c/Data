@@ -27,12 +27,16 @@ OUT_FACTOR = EVAL / "backtest_factor_ml2_dh_poscosecha.parquet"
 OUT_FINAL = GOLD / "pred_poscosecha_ml2_dh_grado_dia_bloque_destino_final.parquet"
 
 
+NUM_COLS = ["dow", "month", "weekofyear"]
+CAT_COLS = ["destino", "grado"]
+
+
 def _to_date(s: pd.Series) -> pd.Series:
     return pd.to_datetime(s, errors="coerce").dt.normalize()
 
 
 def _canon_str(s: pd.Series) -> pd.Series:
-    return s.astype(str).str.upper().str.strip()
+    return s.astype("string").str.upper().str.strip().fillna("UNKNOWN").replace("", "UNKNOWN")
 
 
 def _canon_int(s: pd.Series) -> pd.Series:
@@ -66,21 +70,52 @@ def _pick_first(df: pd.DataFrame, cands: list[str]) -> str | None:
 def _resolve_dh_ml1_col(df: pd.DataFrame) -> str:
     c = _pick_first(df, ["dh_dias_ml1", "dh_dias_pred_ml1", "dh_dias", "dh_dias_med"])
     if c is None:
-        raise KeyError("No encuentro DH baseline en universe. Espero: dh_dias_ml1 / dh_dias_pred_ml1 / dh_dias / dh_dias_med")
+        raise KeyError(
+            "No encuentro DH baseline en universe. Espero: "
+            "dh_dias_ml1 / dh_dias_pred_ml1 / dh_dias / dh_dias_med"
+        )
     return c
 
 
-def _resolve_fecha_post_pred_ml1(df: pd.DataFrame) -> str | None:
-    return _pick_first(df, ["fecha_post_pred_ml1", "fecha_post_pred", "fecha_post_pred_seed"])
+def _ensure_cols(df: pd.DataFrame, cols: list[str], fill_value) -> pd.DataFrame:
+    out = df.copy()
+    for c in cols:
+        if c not in out.columns:
+            out[c] = fill_value
+    return out
 
 
-def main(mode: str = "backtest") -> None:
-    as_of_date = _as_of_date_today_minus_1()
+def _prepare_X(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Alinear tipos con el TRAIN:
+    - NUM_COLS -> numeric
+    - CAT_COLS -> string (canon) + fillna('UNKNOWN')
+    """
+    df = df.copy()
+    df = _ensure_cols(df, NUM_COLS, pd.NA)
+    df = _ensure_cols(df, CAT_COLS, "UNKNOWN")
+
+    for c in NUM_COLS:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+
+    # destino: string canonical
+    df["destino"] = _canon_str(df["destino"])
+
+    # grado: en train lo tratamos como categórica; aquí lo convertimos a Int64 y luego a string
+    # (evita que llegue como float con .0 o NaNs raros)
+    df["grado"] = _canon_int(df["grado"]).astype("string").fillna("UNKNOWN")
+
+    return df[NUM_COLS + CAT_COLS]
+
+
+def main(mode: str = "prod") -> None:
     created_at = pd.Timestamp.utcnow()
 
+    # model
     model_path, meta = _latest_model("dh_poscosecha_ml2")
     pipe = load(model_path)
 
+    # universe
     df = read_parquet(IN_UNIVERSE).copy()
     df.columns = [str(c).strip() for c in df.columns]
 
@@ -89,36 +124,39 @@ def main(mode: str = "backtest") -> None:
     if miss:
         raise KeyError(f"Universe sin columnas: {sorted(miss)}")
 
-    # Canon
+    # Canon base
     df["fecha"] = _to_date(df["fecha"])
     df["destino"] = _canon_str(df["destino"])
     df["grado"] = _canon_int(df["grado"])
     df["variedad_canon"] = _canon_str(df["variedad_canon"])
     df["bloque_base"] = _canon_str(df["bloque_base"])
 
-    # filtro backtest <= as_of_date
     df = df.loc[df["fecha"].notna()].copy()
 
+    # backtest filter
+    as_of_date = None
+    if mode == "backtest":
+        as_of_date = _as_of_date_today_minus_1()
+        df = df.loc[df["fecha"] <= as_of_date].copy()
+
+    # baseline DH (ML1)
     dh_ml1_col = _resolve_dh_ml1_col(df)
     df["dh_ml1_used"] = pd.to_numeric(df[dh_ml1_col], errors="coerce")
 
-    # Features calendario sobre fecha de cosecha (misma lógica que tu ML1)
+    # calendar feats on fecha
     df["dow"] = df["fecha"].dt.dayofweek.astype("Int64")
     df["month"] = df["fecha"].dt.month.astype("Int64")
     df["weekofyear"] = df["fecha"].dt.isocalendar().week.astype("Int64")
 
-    # X
-    # (si quieres meter grado/destino como cat, hazlo igual que train; aquí asumo que tu train ya coincide)
-    X = df[["dow", "month", "weekofyear", "destino", "grado"]].copy()
-    # Asegurar tipos
-    X["destino"] = X["destino"].astype(str)
-    X["grado"] = pd.to_numeric(X["grado"], errors="coerce").astype("Int64").astype(str)
+    # X aligned
+    X = _prepare_X(df)
 
-    # Predicción delta (en días)
+    # predict delta (err) in days
     pred_delta = pd.to_numeric(pd.Series(pipe.predict(X)), errors="coerce")
 
-    clip_delta = float(meta.get("clip_delta_days", 5))
-    pred_delta_clip = pred_delta.clip(lower=-clip_delta, upper=clip_delta)
+    # clip (usar el nombre correcto que viene del TRAIN)
+    clip_err = float(meta.get("clip_err_days", 5.0))
+    pred_delta_clip = pred_delta.clip(lower=-clip_err, upper=clip_err)
 
     # final DH
     df["dh_delta_ml2_raw"] = pred_delta
@@ -132,38 +170,44 @@ def main(mode: str = "backtest") -> None:
     )
     df["dh_dias_final"] = np.rint(df["dh_dias_final"]).astype("Int64").clip(lower=0, upper=30)
 
-    # fecha_post_pred_final (si ya existe una fecha_post_pred_ml1, la recalculamos; si no, la creamos)
+    # fecha_post_pred_final
     df["fecha_post_pred_final"] = df["fecha"] + pd.to_timedelta(df["dh_dias_final"].fillna(0).astype(int), unit="D")
 
-    # meta
+    # meta columns
     df["ml2_dh_model_file"] = model_path.name
-    df["as_of_date"] = as_of_date
     df["created_at"] = created_at
+    if as_of_date is not None:
+        df["as_of_date"] = as_of_date
 
-    # factor output (ligero)
-    out_factor = df[[
-        "fecha", "bloque_base", "variedad_canon", "grado", "destino",
-        "dh_ml1_used", "dh_delta_ml2_raw", "dh_delta_ml2", "dh_dias_final",
-        "fecha_post_pred_final",
-        "ml2_dh_model_file", "as_of_date", "created_at"
-    ]].copy()
-
+    # outputs
     EVAL.mkdir(parents=True, exist_ok=True)
     GOLD.mkdir(parents=True, exist_ok=True)
 
-    write_parquet(out_factor, OUT_FACTOR)
+    # factor output (ligero) -> solo en backtest (para no ensuciar prod)
+    if mode == "backtest":
+        out_factor = df[[
+            "fecha", "bloque_base", "variedad_canon", "grado", "destino",
+            "dh_ml1_used", "dh_delta_ml2_raw", "dh_delta_ml2", "dh_dias_final",
+            "fecha_post_pred_final",
+            "ml2_dh_model_file", "as_of_date", "created_at"
+        ]].copy()
+        write_parquet(out_factor, OUT_FACTOR)
+        print(f"[OK] BACKTEST factor: {OUT_FACTOR} rows={len(out_factor):,}")
+
     write_parquet(df, OUT_FINAL)
 
-    print(f"[OK] BACKTEST factor: {OUT_FACTOR} rows={len(out_factor):,}")
-    print(f"[OK] BACKTEST final : {OUT_FINAL} rows={len(df):,}")
-    print(f"     model={model_path.name} clip_delta=±{clip_delta} as_of_date={as_of_date.date()}")
+    msg = f"[OK] {mode.upper()} final : {OUT_FINAL} rows={len(df):,}\n"
+    msg += f"     model={model_path.name} clip_err=±{clip_err}"
+    if as_of_date is not None:
+        msg += f" as_of_date={as_of_date.date()}"
+    print(msg)
 
 
 if __name__ == "__main__":
     import argparse
 
     ap = argparse.ArgumentParser()
-    ap.add_argument("--mode", default="backtest", choices=["backtest"])
+    ap.add_argument("--mode", default="prod", choices=["prod", "backtest"])
     args = ap.parse_args()
 
     main(mode=args.mode)

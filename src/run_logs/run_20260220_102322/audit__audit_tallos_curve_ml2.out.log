@@ -1,0 +1,23 @@
+[2026-02-20 10:27:23] STEP audit:audit_tallos_curve_ml2
+script=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\audit\audit_tallos_curve_ml2.py
+cmd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\venv\Scripts\python.exe C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\audit\audit_tallos_curve_ml2.py
+cwd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse
+PYTHONPATH=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse;C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src
+OPS_ARTIFACTS_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data
+OPS_LOG_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_102322
+outputs: (none) => no-skip mode
+
+
+=== AUDIT ML2 – CURVA DIARIA TALL0S ===
+KPI global      : C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\eval\ml2\audit_tallos_curve_ml2_kpi_global_20260220_102724.parquet
+KPI por estado  : C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\eval\ml2\audit_tallos_curve_ml2_kpi_by_estado_20260220_102724.parquet
+Dist ajustes    : C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\eval\ml2\audit_tallos_curve_ml2_adjust_dist_20260220_102724.parquet
+Ejemplos 10x2   : C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\eval\ml2\audit_tallos_curve_ml2_examples_10x2_20260220_102724.parquet
+
+--- KPI GLOBAL ---
+ n_rows  n_cycles     mae_ml1    mae_ml2  wape_ml1  wape_ml2  improvement_abs_mae  improvement_abs_wape created_at
+  24352       623 2726.919224 454.700343  0.890893  0.148552           2272.21888              0.742341 2026-02-20
+
+--- DIST AJUSTES ---
+    n     min     p05     p25  median      p75      p95      max  pct_clip
+24352 0.22313 0.22313 0.22313 0.54563 1.439939 3.614025 4.481689  0.021723

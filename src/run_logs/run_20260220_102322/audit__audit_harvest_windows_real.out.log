@@ -1,0 +1,121 @@
+[2026-02-20 10:26:59] STEP audit:audit_harvest_windows_real
+script=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\audit\audit_harvest_windows_real.py
+cmd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\venv\Scripts\python.exe C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\audit\audit_harvest_windows_real.py
+cwd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse
+PYTHONPATH=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse;C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src
+OPS_ARTIFACTS_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data
+OPS_LOG_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_102322
+outputs: (none) => no-skip mode
+
+OK read -> data\silver\fact_ciclo_maestro.parquet | rows=623
+[OK] ciclo_id único (sin duplicados)
+
+[COVERAGE]
+- fecha_sp: 1.0000
+- harvest_start_real: 0.8860
+- harvest_end_real: 0.8234
+- bloque_base: 1.0000
+- variedad: 1.0000
+- tipo_sp: 1.0000
+- area: 1.0000
+
+[CONSISTENCY]
+- % harvest_start_real < fecha_sp: 0.0000
+- % harvest_end_real < harvest_start_real: 0.0000
+
+[TARGET DISTRIBUTIONS: d_start_real (days)]
+count    552.000000
+mean      86.596014
+std       10.442558
+min       37.000000
+25%       79.000000
+50%       85.000000
+75%       93.000000
+max      120.000000
+
+quantiles:
+0.01     66.00
+0.05     70.00
+0.10     74.00
+0.50     85.00
+0.90    101.00
+0.95    105.00
+0.99    111.49
+
+[TARGET DISTRIBUTIONS: n_harvest_days_real (days)]
+count    513.000000
+mean      42.231969
+std        9.909689
+min       16.000000
+25%       35.000000
+50%       42.000000
+75%       49.000000
+max       77.000000
+
+quantiles:
+0.01    21.0
+0.05    26.0
+0.10    30.0
+0.50    42.0
+0.90    55.0
+0.95    58.4
+0.99    65.0
+
+[OUTLIERS]
+- % d_start_real < 0: 0.0000
+- % d_start_real > 365: 0.0000
+- % n_harvest_days_real <= 0: 0.0000
+- % n_harvest_days_real > 120: 0.0000
+
+[SEGMENT SUMMARY TOP 30 by n]
+area variedad tipo_sp  n  d_start_med  d_start_p25  d_start_p75  n_days_med  n_days_p25  n_days_p75
+ MH1       XL       S 54         85.0        82.00        91.00        38.0       33.00       43.00
+ MH2       XL       S 48         87.0        84.00        94.00        38.0       31.00       43.25
+ MH2       XL      P1 47         83.0        78.00        95.00        43.0       37.50       49.50
+ MH1       XL      P1 43         78.0        74.75        89.00        45.0       38.00       53.00
+ A-4       XL       S 36         90.0        84.00        95.25        34.0       26.00       40.75
+ MH1       XL      P2 32         77.5        71.75        88.00        49.0       45.50       53.00
+ A-4       XL      P1 31         82.0        76.00        86.00        44.5       37.50       47.25
+ MH2       XL      P2 31         80.0        78.00        88.25        40.0       34.25       43.75
+ MH1       XL      P3 30         82.0        74.50        86.00        51.5       48.75       55.25
+ MH1      CLO      P1 27         93.0        87.00       100.00        48.5       40.75       54.25
+  CV       XL      P1 27         88.0        80.50        95.50        45.0       40.50       50.50
+ MH2       XL      P3 27         82.5        77.00        87.75        45.5       39.75       48.25
+  CV       XL       S 24         88.0        86.00        92.00        35.5       31.75       38.00
+  CV       XL      P2 22         72.5        70.00        81.00        39.0       36.50       43.50
+ A-4       XL      P4 19         86.0        84.00        95.50        47.0       41.50       50.50
+ MH1      CLO      P2 18         86.0        84.00        96.00        50.0       43.75       55.50
+ MH1      CLO       S 17        101.0        95.00       109.00        31.0       29.00       34.00
+ A-4       XL      P2 17         90.0        82.25        90.25        39.0       35.75       42.00
+ A-4       XL      P3 15         84.0        79.50        91.00        40.0       36.00       45.50
+ MH2       XL      P4 11         95.5        91.75       103.50        43.0       34.75       45.75
+  CV       XL      P3 10         84.0        82.00        94.50        47.0       44.50       48.00
+  CV      CLO       S  9        106.0       104.50       113.50        29.5       28.25       30.75
+ MH1       XL      P4  8         81.0        71.00        85.00        51.0       41.50       56.00
+  CV       XL      P4  6         98.0        75.00       102.00        44.0       43.00       49.00
+  CV      CLO      P1  5         95.5        95.25        95.75        47.0       44.00       50.00
+ MH2       XL      P5  4         84.0        83.00        86.50        46.0       38.50       48.50
+ A-4       XL      P5  3         90.0        89.00        90.00        36.0       34.50       36.50
+ A-4       XL      P7  1         96.0        96.00        96.00        60.0       60.00       60.00
+ A-4       XL      P6  1         83.0        83.00        83.00        46.0       46.00       46.00
+
+[TRAINABLE ROWS]
+- rows with full (sp,start,end): 513 / 623 = 0.8234
+
+[WARN] segmentos con n < 20 (ML1 puede generalizar peor; usar regularización / pooling):
+area variedad tipo_sp  n  d_start_med  d_start_p25  d_start_p75  n_days_med  n_days_p25  n_days_p75
+ A-4       XL      P4 19         86.0        84.00        95.50        47.0       41.50       50.50
+ MH1      CLO      P2 18         86.0        84.00        96.00        50.0       43.75       55.50
+ MH1      CLO       S 17        101.0        95.00       109.00        31.0       29.00       34.00
+ A-4       XL      P2 17         90.0        82.25        90.25        39.0       35.75       42.00
+ A-4       XL      P3 15         84.0        79.50        91.00        40.0       36.00       45.50
+ MH2       XL      P4 11         95.5        91.75       103.50        43.0       34.75       45.75
+  CV       XL      P3 10         84.0        82.00        94.50        47.0       44.50       48.00
+  CV      CLO       S  9        106.0       104.50       113.50        29.5       28.25       30.75
+ MH1       XL      P4  8         81.0        71.00        85.00        51.0       41.50       56.00
+  CV       XL      P4  6         98.0        75.00       102.00        44.0       43.00       49.00
+  CV      CLO      P1  5         95.5        95.25        95.75        47.0       44.00       50.00
+ MH2       XL      P5  4         84.0        83.00        86.50        46.0       38.50       48.50
+ A-4       XL      P5  3         90.0        89.00        90.00        36.0       34.50       36.50
+ A-4       XL      P7  1         96.0        96.00        96.00        60.0       60.00       60.00
+ A-4       XL      P6  1         83.0        83.00        83.00        46.0       46.00       46.00

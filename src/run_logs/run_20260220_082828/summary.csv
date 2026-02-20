@@ -1,0 +1,2 @@
+layer,step,ok,skipped,seconds,returncode,stdout,stderr
+eval,kpis_dh_poscosecha_ml2,0,0,2.096,1,C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_082828\eval__kpis_dh_poscosecha_ml2.out.log,C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_082828\eval__kpis_dh_poscosecha_ml2.err.log

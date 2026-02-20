@@ -1,0 +1,15 @@
+
+==============================================================================================================
+[2026-02-05 22:25:43] PASS 01 | RUN: gold\build_pred_tallos_grado_dia_ml1_full.py
+CMD: C:\Data-LakeHouse\venv\Scripts\python.exe C:\Data-LakeHouse\src\gold\build_pred_tallos_grado_dia_ml1_full.py
+CWD: C:\Data-LakeHouse
+==============================================================================================================
+[CHECK] ciclo mass-balance ML1 vs tallos_proy | max abs diff: 0.000000000029
+[CHECK] % grupos mismatch (sum_grado_ml1 vs dia): 0.0000%
+OK -> data\gold\pred_tallos_grado_dia_ml1_full.parquet | rows=315,240 | fecha_min=2024-03-13 fecha_max=2026-06-11
+
+--- RESULT ---
+[2026-02-05 22:25:45] EXIT_CODE=0 | SECONDS=1.94
+LOG: C:\Data-LakeHouse\src\run_logs\run_20260205_222348\pass01__gold__build_pred_tallos_grado_dia_ml1_full.py.log
+--------------
+

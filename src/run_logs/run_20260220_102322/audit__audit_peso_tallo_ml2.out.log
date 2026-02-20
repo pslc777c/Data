@@ -1,0 +1,59 @@
+[2026-02-20 10:27:19] STEP audit:audit_peso_tallo_ml2
+script=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\audit\audit_peso_tallo_ml2.py
+cmd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\venv\Scripts\python.exe C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\audit\audit_peso_tallo_ml2.py
+cwd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse
+PYTHONPATH=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse;C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src
+OPS_ARTIFACTS_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data
+OPS_LOG_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_102322
+outputs: (none) => no-skip mode
+
+
+=== ML2 PESO POR TALLO AUDIT ===
+KPI global parquet : C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\eval\ml2\audit_peso_tallo_ml2_kpi_global_20260220_102720.parquet
+Ratio dist parquet : C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\eval\ml2\audit_peso_tallo_ml2_ratio_dist_20260220_102720.parquet
+KPI por grado      : C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\eval\ml2\audit_peso_tallo_ml2_kpi_by_grado_20260220_102720.parquet
+Examples 10x2      : C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\eval\ml2\audit_peso_tallo_ml2_examples_10x2_20260220_102720.parquet
+
+--- KPI GLOBAL ---
+ n_rows  n_cycles  mae_ml1_g  mae_ml2_g  wape_wt_ml1_g  wape_wt_ml2_g  kg_abs_err_ml1  kg_abs_err_ml2  improvement_abs_mae_g  improvement_abs_wape_wt_g  improvement_abs_kg created_at
+  29792       551   6.496862   3.764167        5.54592       3.255262   413508.907924   242715.310472               2.732695                   2.290658       170793.597452 2026-02-20
+
+--- RATIO DIST ---
+    n  ratio_min  ratio_p05  ratio_p25  ratio_median  ratio_p75  ratio_p95  ratio_max
+29792   0.578606   0.783226   0.920956      1.018075   1.184289   1.443729   2.225541
+
+--- KPI POR GRADO (top 10 por mejora kg) ---
+grado  n_rows  mae_ml1_g  mae_ml2_g  wape_wt_ml1_g  wape_wt_ml2_g  kg_abs_err_ml1  kg_abs_err_ml2  improvement_abs_kg
+   35    4538   6.354457   3.284043       5.576130       2.888383    79421.289705    41139.482445        38281.807259
+   40    4325   6.324172   3.259624       5.804651       3.002913    79039.897402    40889.615791        38150.281611
+   30    3937   7.006592   3.842363       6.058361       3.330320    65599.870341    36060.675981        29539.194361
+   25    5881   9.263303   4.945745       7.406342       4.392813    71733.648712    42546.309501        29187.339211
+   45    3619   6.683041   3.903139       5.684286       3.422955    58441.276720    35192.087456        23249.189264
+   50    2394   5.863668   3.624504       4.934322       3.243121    29313.350263    19266.426208        10046.924055
+   55    1777   5.886557   4.497374       5.090077       3.811009    21189.175737    15864.621860         5324.553877
+   75     806   4.340056   3.940066       3.532291       3.129747     4331.012734     3837.445055          493.567680
+   15      18   1.293350   1.995028       1.153746       1.614491        8.099295       11.333724           -3.234429
+   20     102   1.157822   1.587159       0.896193       1.411836       74.473619      117.323583          -42.849964
+
+--- EXAMPLES 10x2 ---
+                                ciclo_id  kg_abs_err_ml1  kg_abs_err_ml2  n_rows  improvement_kg   sample_group bloque_base variedad_canon
+2d1e522b3b11046966efb84d0957a05eb4cedc70     2463.688862      793.016525      57     1670.672337 TOP_IMPROVE_10         203             XL
+7f261e1fd0af474f4d5b5a7c7132ac661684c4c5     2240.781866      676.180776      57     1564.601090 TOP_IMPROVE_10         202             XL
+80cc0cac238470f4e0c4ee1fbb37a059d4e6c885     1931.149102      503.220518      55     1427.928584 TOP_IMPROVE_10         211             XL
+995dae4fdcd096efc595b3e1e191e5d5e6a09521     1784.768027      427.292078      60     1357.475949 TOP_IMPROVE_10          11             XL
+63fb5f39a30c2ec6d6fc4b27f7607d2c8e5af654     2210.216015      893.125643      66     1317.090373 TOP_IMPROVE_10         103             XL
+8988d836084833478695e99f8af39c93361d418d     1924.671955      687.178601      59     1237.493354 TOP_IMPROVE_10         207             XL
+cf321c546c122a9c51be82d6ad0d98f6c30db12d     1853.216609      663.839122      56     1189.377487 TOP_IMPROVE_10         201             XL
+ac47eba92523607ba58dc8bd8422ab5246eae686     1620.468497      431.644377      66     1188.824120 TOP_IMPROVE_10         309             XL
+e381e1dc2ed930f12bd666b186f3c32cecd52d42     1355.929384      186.712567      51     1169.216818 TOP_IMPROVE_10         104             XL
+e99420d04d6ad106e70cc2f4a41ff398b216ceb1     1657.004279      494.544176      62     1162.460103 TOP_IMPROVE_10         101             XL
+87eb8f4a7fede06b7fe7dabc2f57f241a75c3f6e      774.742016     2233.325136      45    -1458.583120   TOP_WORSE_10          65             XL
+131e6c0679300d2b9953914bf5298bc4d705da83      536.082258     1869.592837      56    -1333.510579   TOP_WORSE_10          63             XL
+927821122e3b6a7c63395c5815ef06e7c05b6eeb      621.443788     1851.622652      51    -1230.178863   TOP_WORSE_10         318             XL
+ef3c3e4b5c9b83aaa673d50635d3c6555fe3738d      723.028626     1887.929661      58    -1164.901035   TOP_WORSE_10         329             XL
+d137bce123ad0c8c2912a1f5213d25f780ca3a64      536.450409     1462.993246      46     -926.542837   TOP_WORSE_10          28             XL
+c8a49822c40533fb5ad81c7c00d510ae461f35c2      527.206551     1443.456830      58     -916.250279   TOP_WORSE_10          78             XL
+5642697878cf99e65c5e7e6ae931b1993a4d06e9      338.882886     1214.868391      55     -875.985505   TOP_WORSE_10           3             XL
+4e75aa844bd4382373e1fe96a95a8be949319258      485.828188     1282.354156      59     -796.525968   TOP_WORSE_10         223             XL
+af0f01cab6e03f52d70c243dce674f557f7d1e48      593.391809     1386.484737      73     -793.092929   TOP_WORSE_10         335             XL
+061e6e8618b188bbe792cf3f5807fecab59c3b37      525.679178     1264.417577      43     -738.738399   TOP_WORSE_10          64             XL

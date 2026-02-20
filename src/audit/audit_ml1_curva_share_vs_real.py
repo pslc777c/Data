@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-import json
 import numpy as np
 import pandas as pd
 
 from common.io import read_parquet
-
 
 # -------------------------
 # Paths
@@ -18,7 +16,6 @@ PROG_PATH = Path("data/silver/dim_cosecha_progress_bloque_fecha.parquet")
 OFERTA_PATH = Path("data/preds/pred_oferta_dia.parquet")
 
 # Predicciones nuevas por share (SALIDA del apply_curva_share_dia)
-# OJO: si tu apply escribe en pred_factor_curva_ml1.parquet, úsalo.
 PRED_FACTOR_PATH = Path("data/gold/pred_factor_curva_ml1.parquet")
 
 # Para reconstruir tallos_ml1_dia: baseline * factor (compat downstream)
@@ -33,6 +30,8 @@ def _to_date(s: pd.Series) -> pd.Series:
 
 
 def _canon_int(s: pd.Series) -> pd.Series:
+    # pandas nullable Int64 puede no estar disponible en algunos entornos viejos;
+    # acá lo dejamos, pero si falla en tu ambiente ya sabes el patrón del fix.
     return pd.to_numeric(s, errors="coerce").astype("Int64")
 
 
@@ -46,8 +45,11 @@ def _require(df: pd.DataFrame, cols: list[str], name: str) -> None:
         raise ValueError(f"{name}: faltan columnas {miss}. Cols={list(df.columns)}")
 
 
-def _safe_div(a: np.ndarray, b: np.ndarray, eps: float = 1e-12) -> np.ndarray:
-    return a / (b + eps)
+def _pick_first(df: pd.DataFrame, cands: list[str]) -> str | None:
+    for c in cands:
+        if c in df.columns:
+            return c
+    return None
 
 
 def _cycle_metrics(df: pd.DataFrame) -> pd.Series:
@@ -76,24 +78,19 @@ def _cycle_metrics(df: pd.DataFrame) -> pd.Series:
             }
         )
 
-    # shares
     pr = r / sr
     pm = np.where(sm > 0, m / sm, 0.0)
 
-    # L1 share distance
     l1 = float(np.abs(pm - pr).sum())
 
-    # KS on CDF
     cdf_r = np.cumsum(pr)
     cdf_m = np.cumsum(pm)
     ks = float(np.max(np.abs(cdf_m - cdf_r)))
 
-    # Peak position error (argmax day index)
     peak_r = int(np.argmax(pr))
     peak_m = int(np.argmax(pm))
     peak_err = peak_m - peak_r
 
-    # Early/tail mass diffs (primer 20% y último 20%)
     n = len(df)
     k = max(1, int(np.ceil(0.20 * n)))
     early_r = float(pr[:k].sum())
@@ -115,7 +112,7 @@ def _cycle_metrics(df: pd.DataFrame) -> pd.Series:
 
 
 def main() -> None:
-    created_at = pd.Timestamp.utcnow()
+    created_at = pd.Timestamp.now("UTC")
 
     # -------------------------
     # Read
@@ -126,7 +123,7 @@ def main() -> None:
     pred = read_parquet(PRED_FACTOR_PATH).copy()
 
     # -------------------------
-    # Canon keys
+    # Universe keys
     # -------------------------
     _require(uni, ["ciclo_id", "fecha", "bloque_base", "variedad_canon"], "universe")
     uni["ciclo_id"] = uni["ciclo_id"].astype(str)
@@ -137,7 +134,9 @@ def main() -> None:
     key = ["ciclo_id", "fecha", "bloque_base", "variedad_canon"]
     uni_k = uni[key].drop_duplicates()
 
-    # PROG: viene variedad raw => canonizar mínimo (XLENCE->XL, CLOUD->CLO).
+    # -------------------------
+    # PROG (real)
+    # -------------------------
     _require(prog, ["ciclo_id", "fecha", "bloque_base", "variedad", "tallos_real_dia"], "prog")
     prog["ciclo_id"] = prog["ciclo_id"].astype(str)
     prog["fecha"] = _to_date(prog["fecha"])
@@ -145,30 +144,50 @@ def main() -> None:
     prog["variedad_raw"] = _canon_str(prog["variedad"])
     prog["variedad_canon"] = prog["variedad_raw"].replace({"XLENCE": "XL", "CLOUD": "CLO"})
     prog["tallos_real_dia"] = pd.to_numeric(prog["tallos_real_dia"], errors="coerce").fillna(0.0).astype(float)
+
     prog_k = prog[["ciclo_id", "fecha", "bloque_base", "variedad_canon", "tallos_real_dia"]].drop_duplicates(subset=key)
 
-    # OFERTA baseline
-    _require(oferta, ["ciclo_id", "fecha", "bloque_base", "stage", "tallos_pred"], "oferta")
+    # -------------------------
+    # OFERTA baseline (FIX: bloque vs bloque_base)
+    # -------------------------
+    _require(oferta, ["ciclo_id", "fecha", "stage", "tallos_pred"], "oferta")
+
+    # FIX PRINCIPAL: resolver columna de bloque (bloque_base o bloque)
+    bloque_col = _pick_first(oferta, ["bloque_base", "bloque"])
+    if bloque_col is None:
+        raise ValueError(f"oferta: no encuentro bloque_base/bloque. Cols={list(oferta.columns)}")
+
     oferta["ciclo_id"] = oferta["ciclo_id"].astype(str)
     oferta["fecha"] = _to_date(oferta["fecha"])
-    oferta["bloque_base"] = _canon_int(oferta["bloque_base"])
     oferta["stage"] = _canon_str(oferta["stage"])
-    # canon variedad (si ya existe en oferta, ok; si no, fallback de tu pipeline)
+
+    # crear bloque_base canónico
+    # (si 'bloque' ya es numérico, perfecto; si es string, se coerciona)
+    oferta["bloque_base"] = _canon_int(oferta[bloque_col])
+
+    # canon variedad
     if "variedad_canon" in oferta.columns:
         oferta["variedad_canon"] = _canon_str(oferta["variedad_canon"])
     elif "variedad" in oferta.columns:
         oferta["variedad_canon"] = _canon_str(oferta["variedad"]).replace({"XLENCE": "XL", "CLOUD": "CLO"})
     else:
         oferta["variedad_canon"] = "UNKNOWN"
+
     oferta = oferta[oferta["stage"].eq("HARVEST")].copy()
     oferta["tallos_base_dia"] = pd.to_numeric(oferta["tallos_pred"], errors="coerce").fillna(0.0).astype(float)
+
+    # agrupar baseline por key
     oferta_k = (
         oferta.groupby(key, as_index=False)
-        .agg(tallos_base_dia=("tallos_base_dia", "sum"),
-             tallos_proy=("tallos_proy", "max") if "tallos_proy" in oferta.columns else ("tallos_base_dia", "sum"))
+        .agg(
+            tallos_base_dia=("tallos_base_dia", "sum"),
+            tallos_proy=("tallos_proy", "max") if "tallos_proy" in oferta.columns else ("tallos_base_dia", "sum"),
+        )
     )
 
+    # -------------------------
     # PRED factor / share
+    # -------------------------
     _require(pred, ["ciclo_id", "fecha", "bloque_base", "variedad_canon", "factor_curva_ml1"], "pred_factor")
     pred["ciclo_id"] = pred["ciclo_id"].astype(str)
     pred["fecha"] = _to_date(pred["fecha"])
@@ -187,22 +206,23 @@ def main() -> None:
              .merge(prog_k, on=key, how="left")
     )
 
-    panel["tallos_base_dia"] = pd.to_numeric(panel["tallos_base_dia"], errors="coerce").fillna(0.0).astype(float)
-    panel["factor_curva_ml1"] = pd.to_numeric(panel["factor_curva_ml1"], errors="coerce").fillna(1.0).astype(float)
-    grp = ["ciclo_id"]
-    panel["_f"] = panel["factor_curva_ml1"].clip(lower=0.0)
+    panel["tallos_base_dia"] = pd.to_numeric(panel.get("tallos_base_dia"), errors="coerce").fillna(0.0).astype(float)
+    panel["factor_curva_ml1"] = pd.to_numeric(panel.get("factor_curva_ml1"), errors="coerce").fillna(1.0).astype(float)
 
-    s = panel.groupby(grp, dropna=False)["_f"].transform("sum")
+    panel["_f"] = panel["factor_curva_ml1"].clip(lower=0.0)
+    s = panel.groupby(["ciclo_id"], dropna=False)["_f"].transform("sum")
     panel["_w"] = np.where(s > 0, panel["_f"] / s, 0.0)
 
+    # reconstrucción: tallos_ml1_dia = share * tallos_proy
+    panel["tallos_proy"] = pd.to_numeric(panel.get("tallos_proy"), errors="coerce").fillna(0.0).astype(float)
     panel["tallos_ml1_dia"] = panel["_w"] * panel["tallos_proy"]
 
-    panel["tallos_real_dia"] = pd.to_numeric(panel["tallos_real_dia"], errors="coerce").fillna(0.0).astype(float)
+    panel["tallos_real_dia"] = pd.to_numeric(panel.get("tallos_real_dia"), errors="coerce").fillna(0.0).astype(float)
 
-    # Coverage
+    # -------------------------
+    # Coverage / invariants
+    # -------------------------
     universe_rows = int(len(uni_k))
-    miss_oferta = int(panel["tallos_base_dia"].isna().sum())  # (debería ser 0 tras fillna, pero dejamos)
-    miss_pred = int(panel["factor_curva_ml1"].isna().sum())
     cov_real = float((panel["tallos_real_dia"] > 0).mean())
 
     print("=== COVERAGE ===")
@@ -211,30 +231,21 @@ def main() -> None:
             "created_at": created_at,
             "universe_rows": universe_rows,
             "coverage_real_gt0": cov_real,
-            "miss_oferta_rows": miss_oferta,
-            "miss_pred_rows": miss_pred,
         }]).to_string(index=False)
     )
 
-    # -------------------------
-    # Invariants
-    # -------------------------
-    # Mass balance ML1 vs proy (si tallos_proy existe y es consistente)
-    if "tallos_proy" in panel.columns:
-        cyc = panel.groupby("ciclo_id", dropna=False).agg(
-            proy=("tallos_proy", "max"),
-            ml1_sum=("tallos_ml1_dia", "sum"),
-        )
-        cyc["abs_diff"] = (cyc["proy"].astype(float) - cyc["ml1_sum"].astype(float)).abs()
-        print("\n=== MASS BALANCE (cycle) ===")
-        print(f"cycles={len(cyc):,} | max abs diff ml1 vs proy: {float(cyc['abs_diff'].max()):.12f}")
+    cyc = panel.groupby("ciclo_id", dropna=False).agg(
+        proy=("tallos_proy", "max"),
+        ml1_sum=("tallos_ml1_dia", "sum"),
+    )
+    cyc["abs_diff"] = (cyc["proy"].astype(float) - cyc["ml1_sum"].astype(float)).abs()
+    print("\n=== MASS BALANCE (cycle) ===")
+    print(f"cycles={len(cyc):,} | max abs diff ml1 vs proy: {float(cyc['abs_diff'].max()):.12f}")
 
     # -------------------------
-    # Shape metrics (cycle-level) for cycles with real>0
+    # Shape metrics (cycle-level)
     # -------------------------
-    # Orden por fecha dentro de ciclo
     panel = panel.sort_values(["ciclo_id", "fecha"]).reset_index(drop=True)
-
     cyc_metrics = panel.groupby("ciclo_id", dropna=False).apply(_cycle_metrics).reset_index()
 
     n_total = int(cyc_metrics["ciclo_id"].nunique())
@@ -245,21 +256,20 @@ def main() -> None:
     if n_real > 0:
         cols_show = ["l1_share", "ks_cdf", "peak_pos_err_days", "mass_early_diff", "mass_tail_diff"]
         for c in cols_show:
-            s = cyc_metrics.loc[cyc_metrics["has_real"], c].astype(float)
+            ss = cyc_metrics.loc[cyc_metrics["has_real"], c].astype(float)
             print(f"\n{c}:")
-            print(s.describe().to_string())
+            print(ss.describe().to_string())
 
     # -------------------------
     # Save detailed report
     # -------------------------
     panel["created_at_audit"] = created_at
     OUT_REPORT.parent.mkdir(parents=True, exist_ok=True)
-    write = panel  # full panel for drill-down
-    # guardamos también métricas por ciclo en JSON sidecar
+
+    panel.to_parquet(OUT_REPORT, index=False)
+
     cyc_out = cyc_metrics.copy()
     cyc_out["created_at_audit"] = created_at
-    write.to_parquet(OUT_REPORT, index=False)
-
     cyc_path = OUT_REPORT.with_name("audit_ml1_curva_share_cycle_metrics.parquet")
     cyc_out.to_parquet(cyc_path, index=False)
 

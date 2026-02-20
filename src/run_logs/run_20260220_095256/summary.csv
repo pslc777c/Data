@@ -1,0 +1,2 @@
+layer,step,ok,skipped,seconds,returncode,stdout,stderr
+audit,audit_harvest_start_ml2,1,0,0.828,0,C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_095256\audit__audit_harvest_start_ml2.out.log,C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_095256\audit__audit_harvest_start_ml2.err.log

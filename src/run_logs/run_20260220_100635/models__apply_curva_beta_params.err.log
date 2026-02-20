@@ -1,0 +1,2 @@
+C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\models\ml1\apply_curva_beta_params.py:571: Pandas4Warning: Timestamp.utcnow is deprecated and will be removed in a future version. Use Timestamp.now('UTC') instead.
+  out["created_at"] = pd.Timestamp.utcnow()

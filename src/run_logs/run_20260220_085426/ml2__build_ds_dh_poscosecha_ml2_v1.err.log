@@ -1,0 +1,2 @@
+C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\gold\build_ds_dh_poscosecha_ml2_v1.py:152: Pandas4Warning: Timestamp.utcnow is deprecated and will be removed in a future version. Use Timestamp.now('UTC') instead.
+  df["created_at"] = pd.Timestamp.utcnow()

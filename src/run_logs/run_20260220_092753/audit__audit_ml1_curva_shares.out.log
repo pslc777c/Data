@@ -1,0 +1,67 @@
+[2026-02-20 09:31:55] STEP audit:audit_ml1_curva_shares
+script=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\audit\audit_ml1_curva_shares.py
+cmd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\venv\Scripts\python.exe C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\audit\audit_ml1_curva_shares.py
+cwd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse
+PYTHONPATH=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse;C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src
+OPS_ARTIFACTS_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data
+OPS_LOG_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_092753
+outputs: (none) => no-skip mode
+
+
+=== COVERAGE ===
+                      created_at  universe_rows  curva_rows  dist_day_rows  oferta_rows  prog_rows  miss_curva_rows  miss_dist_rows  miss_oferta_rows  miss_prog_rows  miss_curva_rate  miss_dist_rate  miss_oferta_rate  miss_prog_rate
+2026-02-20 14:31:55.966584+00:00          25686       25686          25686        26669      15625                0               0              4423           12139              0.0             0.0          0.172195        0.472592
+
+=== INVARIANTS (day) ===
+                      created_at  pct_day_mismatch_base  pct_day_mismatch_ml1  pct_day_ml1_dia_nan  pct_day_ml1_dia_zero
+2026-02-20 14:31:55.966584+00:00                    0.0                   0.0                  0.0                   0.0
+
+=== MASS BALANCE (cycle) ===
+cycles=623 | max abs diff ml1 vs proy: 70771.169797813578
+
+=== SHAPE (cycle) ===
+cycles total=623 | cycles with real=550
+
+L1 share (lower is better):
+count     550.00000
+unique    549.00000
+top         0.44739
+freq        2.00000
+
+KS CDF (lower is better):
+count     550.000000
+unique    548.000000
+top         0.098374
+freq        2.000000
+
+Peak position error (days):
+count    550.000000
+mean       1.101818
+std        6.409280
+min      -18.000000
+25%       -3.000000
+50%        1.000000
+75%        4.000000
+max       23.000000
+
+Mass early diff (ML1 - real):
+count    550.000000
+mean      -0.014577
+std        0.086810
+min       -0.970062
+25%       -0.007802
+50%        0.007513
+75%        0.012108
+max        0.055885
+
+Mass tail diff (ML1 - real):
+count    550.000000
+mean      -0.019235
+std        0.060422
+min       -0.328229
+25%       -0.044921
+50%       -0.004216
+75%        0.019061
+max        0.104979
+
+OK -> auditoría escrita en: data\audit\ml1_status

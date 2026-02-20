@@ -1,0 +1,10 @@
+[2026-02-20 07:39:04] STEP ml2:build_ds_harvest_start_ml2_v2
+script=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\gold\build_ds_harvest_start_ml2_v2.py
+cmd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\venv\Scripts\python.exe C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\gold\build_ds_harvest_start_ml2_v2.py
+cwd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse
+PYTHONPATH=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse;C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src
+OPS_ARTIFACTS_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data
+OPS_LOG_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_073904
+outputs: (none) => no-skip mode
+
+[OK] Wrote C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\gold\ml2_datasets\ds_harvest_start_ml2_v2.parquet rows=47,764 cycles=552

@@ -1,0 +1,14 @@
+
+==============================================================================================================
+[2026-02-05 22:30:16] PASS 04 | RUN: gold\build_ds_dh_poscosecha_ml2_v1.py
+CMD: C:\Data-LakeHouse\venv\Scripts\python.exe C:\Data-LakeHouse\src\gold\build_ds_dh_poscosecha_ml2_v1.py
+CWD: C:\Data-LakeHouse
+==============================================================================================================
+[OK] Wrote dataset: C:\Data-LakeHouse\data\gold\ml2_datasets\ds_dh_poscosecha_ml2_v1.parquet
+     rows=751,248 rows_with_real=98,976 as_of_date=2026-02-04 clip=±5
+
+--- RESULT ---
+[2026-02-05 22:30:20] EXIT_CODE=0 | SECONDS=4.52
+LOG: C:\Data-LakeHouse\src\run_logs\run_20260205_222348\pass04__gold__build_ds_dh_poscosecha_ml2_v1.py.log
+--------------
+

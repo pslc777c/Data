@@ -2,27 +2,66 @@ from __future__ import annotations
 
 from pathlib import Path
 from datetime import datetime
+
 import numpy as np
 import pandas as pd
 
-from src.common.io import read_parquet, write_parquet
+from common.io import read_parquet, write_parquet
 
 
 def _project_root() -> Path:
+    # .../src/audit/file.py -> repo_root = parents[2]
     return Path(__file__).resolve().parents[2]
 
 
 ROOT = _project_root()
-DATA_DIR = ROOT / "data"
-SILVER_DIR = DATA_DIR / "silver"
-EVAL_DIR = DATA_DIR / "eval" / "ml2"
+DATA = ROOT / "data"
+SILVER = DATA / "silver"
+EVAL = DATA / "eval" / "ml2"
+GOLD = DATA / "gold"
 
-IN_CICLO = SILVER_DIR / "fact_ciclo_maestro.parquet"
-IN_FACTOR = EVAL_DIR / "backtest_factor_ml2_harvest_horizon.parquet"
+IN_CICLO = SILVER / "fact_ciclo_maestro.parquet"
+
+# En tu pipeline algunas salidas backtest se guardan en EVAL/ml2
+# pero a veces cambian nombres. Lo resolvemos por búsqueda.
+PRED_CANDIDATES = [
+    EVAL / "backtest_pred_harvest_horizon_final_ml2.parquet",
+    EVAL / "backtest_pred_harvest_horizon_ml2.parquet",
+    GOLD / "pred_harvest_horizon_final_ml2.parquet",
+    GOLD / "pred_harvest_horizon_ml2.parquet",
+]
+
+OUT_GLOBAL = EVAL / f"audit_harvest_horizon_ml2_global_{datetime.now().strftime('%Y%m%d_%H%M%S')}.parquet"
+OUT_EXAMPLES = EVAL / f"audit_harvest_horizon_ml2_examples_{datetime.now().strftime('%Y%m%d_%H%M%S')}.parquet"
 
 
 def _to_date(s: pd.Series) -> pd.Series:
     return pd.to_datetime(s, errors="coerce").dt.normalize()
+
+
+def _pick_first(df: pd.DataFrame, cands: list[str]) -> str | None:
+    for c in cands:
+        if c in df.columns:
+            return c
+    return None
+
+
+def _find_pred_file() -> Path:
+    for p in PRED_CANDIDATES:
+        if p.exists():
+            return p
+
+    # fallback: buscar por patrón en EVAL y GOLD
+    for folder in [EVAL, GOLD]:
+        hits = sorted(folder.glob("*harvest_horizon*ml2*.parquet"))
+        if hits:
+            return hits[-1]
+
+    raise FileNotFoundError(
+        "No encuentro parquet de predicción harvest_horizon ML2.\n"
+        f"Probé candidatos: {[str(p) for p in PRED_CANDIDATES]}\n"
+        f"Y patrones: {EVAL}/*harvest_horizon*ml2*.parquet, {GOLD}/*harvest_horizon*ml2*.parquet"
+    )
 
 
 def _mae(x: pd.Series) -> float:
@@ -35,134 +74,161 @@ def _bias(x: pd.Series) -> float:
     return float(np.nanmean(x)) if len(x) else float("nan")
 
 
-def _pick_first_existing(df: pd.DataFrame, candidates: list[str]) -> str:
-    for c in candidates:
-        if c in df.columns:
-            return c
-    raise KeyError(f"None of these columns exist: {candidates}")
+def _ensure_real_horizon_days(ciclo: pd.DataFrame) -> pd.DataFrame:
+    """
+    Devuelve ciclo con columna horizon_real_days.
+    Regla:
+      1) Si existe alguna columna candidata de horizonte real -> usarla.
+      2) Si no, calcular: (fecha_fin_cosecha - fecha_inicio_cosecha).days + 1 (inclusivo), clip>=1.
+    """
+    out = ciclo.copy()
+
+    # 1) intentar columna explícita si existiera (en otros entornos)
+    cand_real = [
+        "n_harvest_days_real",
+        "n_harvest_days",
+        "harvest_horizon_days",
+        "harvest_horizon",
+        "horizon_days",
+        "window_days",
+    ]
+    c = _pick_first(out, cand_real)
+    if c is not None:
+        out["horizon_real_days"] = pd.to_numeric(out[c], errors="coerce")
+        return out
+
+    # 2) calcular desde fechas (tu caso actual)
+    if "fecha_inicio_cosecha" not in out.columns or "fecha_fin_cosecha" not in out.columns:
+        raise KeyError(
+            "No encuentro horizonte real ni puedo calcularlo.\n"
+            f"Busqué candidatos: {cand_real}\n"
+            "Y esperaba fechas: fecha_inicio_cosecha y fecha_fin_cosecha\n"
+            f"cols={list(out.columns)}"
+        )
+
+    out["fecha_inicio_cosecha"] = _to_date(out["fecha_inicio_cosecha"])
+    out["fecha_fin_cosecha"] = _to_date(out["fecha_fin_cosecha"])
+
+    delta = (out["fecha_fin_cosecha"] - out["fecha_inicio_cosecha"]).dt.days
+    # Inclusivo: start y end cuentan como días de cosecha
+    out["horizon_real_days"] = (delta + 1).astype("Float64")
+
+    # sanity
+    out.loc[out["horizon_real_days"] < 1, "horizon_real_days"] = 1
+    return out
 
 
 def main() -> None:
+    print("\n=== AUDIT: HARVEST HORIZON ML2 ===")
+    created_at = pd.Timestamp.utcnow()
+
     ciclo = read_parquet(IN_CICLO).copy()
-    fact = read_parquet(IN_FACTOR).copy()
+    pred_path = _find_pred_file()
+    pred = read_parquet(pred_path).copy()
 
-    # Normalizar fechas en ciclo (autoridad de lo real)
-    # Nota: ciclo puede tener nombres distintos según tu versión, cubrimos ambos.
-    c_ini = _pick_first_existing(ciclo, ["fecha_inicio_cosecha", "fecha_ini_cosecha"])
-    c_fin = _pick_first_existing(ciclo, ["fecha_fin_cosecha", "fecha_fin"])
+    ciclo.columns = [str(c).strip() for c in ciclo.columns]
+    pred.columns = [str(c).strip() for c in pred.columns]
 
-    ciclo[c_ini] = _to_date(ciclo[c_ini])
-    ciclo[c_fin] = _to_date(ciclo[c_fin])
+    # --- keys
+    if "ciclo_id" not in ciclo.columns:
+        raise KeyError(f"fact_ciclo_maestro sin ciclo_id. cols={list(ciclo.columns)}")
+    if "ciclo_id" not in pred.columns:
+        raise KeyError(f"pred file sin ciclo_id. file={pred_path} cols={list(pred.columns)}")
 
-    # Para evitar sufijos _x/_y: tomamos de ciclo solo lo que necesitamos
-    cols = ["ciclo_id", c_ini, c_fin]
-    if "estado" in ciclo.columns:
-        cols.insert(1, "estado")
-    ciclo_small = ciclo[cols].copy()
+    ciclo["ciclo_id"] = ciclo["ciclo_id"].astype(str)
+    pred["ciclo_id"] = pred["ciclo_id"].astype(str)
 
-    ciclo_small = ciclo_small.rename(columns={c_ini: "fecha_inicio_cosecha_real", c_fin: "fecha_fin_cosecha_real"})
+    # --- real horizon
+    ciclo = _ensure_real_horizon_days(ciclo)
 
-    df = ciclo_small.merge(fact, on="ciclo_id", how="inner")
-    # Estado: puede venir en ciclo o en factor. Normalizamos y garantizamos que exista.
-    if "estado" not in df.columns:
-        if "estado_x" in df.columns:
-            df["estado"] = df["estado_x"]
-        elif "estado_y" in df.columns:
-            df["estado"] = df["estado_y"]
-        elif "estado_ml1" in df.columns:
-            df["estado"] = df["estado_ml1"]
-        else:
-            df["estado"] = "UNKNOWN"
+    # --- pred columns (tolerante)
+    # Muchos scripts usan horizon_pred / horizon_final como días (int/float)
+    pred_col_ml1 = _pick_first(pred, ["harvest_horizon_pred", "horizon_pred", "n_harvest_days_pred", "window_days_pred"])
+    pred_col_ml2 = _pick_first(pred, ["harvest_horizon_final", "horizon_final", "n_harvest_days_final", "window_days_final"])
 
-    df["estado"] = df["estado"].astype(str).str.upper().str.strip()
+    if pred_col_ml1 is None and pred_col_ml2 is None:
+        raise KeyError(
+            "No encuentro columnas de predicción de horizonte en el parquet.\n"
+            "Candidatos ML1: harvest_horizon_pred / horizon_pred / n_harvest_days_pred / window_days_pred\n"
+            "Candidatos ML2: harvest_horizon_final / horizon_final / n_harvest_days_final / window_days_final\n"
+            f"file={pred_path.name} cols={list(pred.columns)}"
+        )
 
-    # Real duration
-    df["n_harvest_days_real"] = (df["fecha_fin_cosecha_real"] - df["fecha_inicio_cosecha_real"]).dt.days + 1
+    df = ciclo[["ciclo_id", "horizon_real_days"]].merge(pred, on="ciclo_id", how="inner")
 
-    # Errors (duración)
-    df["err_ml1_days"] = pd.to_numeric(df["n_harvest_days_real"], errors="coerce") - pd.to_numeric(df["n_harvest_days_pred"], errors="coerce")
-    df["err_ml2_days"] = pd.to_numeric(df["n_harvest_days_real"], errors="coerce") - pd.to_numeric(df["n_harvest_days_final"], errors="coerce")
+    # numeric
+    df["horizon_real_days"] = pd.to_numeric(df["horizon_real_days"], errors="coerce")
+    if pred_col_ml1 is not None:
+        df["horizon_pred_ml1"] = pd.to_numeric(df[pred_col_ml1], errors="coerce")
+    else:
+        df["horizon_pred_ml1"] = np.nan
 
-    df = df.loc[df["err_ml1_days"].notna() & df["err_ml2_days"].notna(), :].copy()
+    if pred_col_ml2 is not None:
+        df["horizon_pred_ml2"] = pd.to_numeric(df[pred_col_ml2], errors="coerce")
+    else:
+        df["horizon_pred_ml2"] = np.nan
 
-    # Paths outputs con timestamp
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    out_kpi_global = EVAL_DIR / f"audit_harvest_horizon_ml2_kpi_global_{ts}.parquet"
-    out_dist = EVAL_DIR / f"audit_harvest_horizon_ml2_adjust_dist_{ts}.parquet"
-    out_by_estado = EVAL_DIR / f"audit_harvest_horizon_ml2_kpi_by_estado_{ts}.parquet"
-    out_examples = EVAL_DIR / f"audit_harvest_horizon_ml2_examples_10x2_{ts}.parquet"
+    # filtro válido
+    m = df["horizon_real_days"].notna() & (df["horizon_real_days"] > 0)
+    if pred_col_ml1 is not None:
+        m = m & df["horizon_pred_ml1"].notna()
+    if pred_col_ml2 is not None:
+        m = m & df["horizon_pred_ml2"].notna()
 
-    # KPI GLOBAL
-    kpi_global = pd.DataFrame([{
-        "n": int(len(df)),
-        "mae_ml1_days": _mae(df["err_ml1_days"]),
-        "mae_ml2_days": _mae(df["err_ml2_days"]),
-        "bias_ml1_days": _bias(df["err_ml1_days"]),
-        "bias_ml2_days": _bias(df["err_ml2_days"]),
-        "improvement_abs_days": (_mae(df["err_ml1_days"]) - _mae(df["err_ml2_days"])),
-        "created_at": pd.Timestamp(datetime.now()).normalize(),
+    d = df.loc[m].copy()
+
+    # errores
+    if pred_col_ml1 is not None:
+        d["err_ml1_days"] = d["horizon_real_days"].astype(float) - d["horizon_pred_ml1"].astype(float)
+    else:
+        d["err_ml1_days"] = np.nan
+
+    if pred_col_ml2 is not None:
+        d["err_ml2_days"] = d["horizon_real_days"].astype(float) - d["horizon_pred_ml2"].astype(float)
+    else:
+        d["err_ml2_days"] = np.nan
+
+    mae_ml1 = _mae(d["err_ml1_days"]) if pred_col_ml1 is not None else np.nan
+    mae_ml2 = _mae(d["err_ml2_days"]) if pred_col_ml2 is not None else np.nan
+
+    out = pd.DataFrame([{
+        "n": int(len(d)),
+        "pred_file": pred_path.name,
+        "pred_col_ml1": pred_col_ml1,
+        "pred_col_ml2": pred_col_ml2,
+        "mae_ml1_days": float(mae_ml1) if pd.notna(mae_ml1) else np.nan,
+        "mae_ml2_days": float(mae_ml2) if pd.notna(mae_ml2) else np.nan,
+        "bias_ml1_days": _bias(d["err_ml1_days"]) if pred_col_ml1 is not None else np.nan,
+        "bias_ml2_days": _bias(d["err_ml2_days"]) if pred_col_ml2 is not None else np.nan,
+        "improvement_abs_days": (float(mae_ml1) - float(mae_ml2)) if (pd.notna(mae_ml1) and pd.notna(mae_ml2)) else np.nan,
+        "created_at": created_at.normalize(),
     }])
-    write_parquet(kpi_global, out_kpi_global)
 
-    # DIST AJUSTE
-    adj = pd.to_numeric(df["pred_error_horizon_days"], errors="coerce")
-    dist = pd.DataFrame([{
-        "n_factor_rows": int(adj.notna().sum()),
-        "adj_min": float(np.nanmin(adj)) if len(adj) else np.nan,
-        "adj_p25": float(np.nanpercentile(adj, 25)) if len(adj) else np.nan,
-        "adj_median": float(np.nanmedian(adj)) if len(adj) else np.nan,
-        "adj_p75": float(np.nanpercentile(adj, 75)) if len(adj) else np.nan,
-        "adj_max": float(np.nanmax(adj)) if len(adj) else np.nan,
-        "pct_clip": float(np.nanmean((adj <= -14) | (adj >= 21))) if len(adj) else np.nan,
-    }])
-    write_parquet(dist, out_dist)
+    # ejemplos top/bottom por mejora absoluta
+    if (pred_col_ml1 is not None) and (pred_col_ml2 is not None) and len(d):
+        d["abs_err_ml1"] = d["err_ml1_days"].abs()
+        d["abs_err_ml2"] = d["err_ml2_days"].abs()
+        d["improvement_abs"] = d["abs_err_ml1"] - d["abs_err_ml2"]
 
-    # KPI POR ESTADO
-    rows = []
-    for estado, g in df.groupby("estado"):
-        rows.append({
-            "estado": estado,
-            "n": int(len(g)),
-            "mae_ml1_days": _mae(g["err_ml1_days"]),
-            "mae_ml2_days": _mae(g["err_ml2_days"]),
-            "bias_ml1_days": _bias(g["err_ml1_days"]),
-            "bias_ml2_days": _bias(g["err_ml2_days"]),
-            "improvement_abs_days": (_mae(g["err_ml1_days"]) - _mae(g["err_ml2_days"])),
-        })
-    by_estado = pd.DataFrame(rows).sort_values(["estado"])
-    write_parquet(by_estado, out_by_estado)
+        top = d.sort_values("improvement_abs", ascending=False).head(10).copy()
+        top["sample_group"] = "TOP_IMPROVE_10"
+        worst = d.sort_values("improvement_abs", ascending=True).head(10).copy()
+        worst["sample_group"] = "TOP_WORSE_10"
+        ex = pd.concat([top, worst], ignore_index=True)
+    else:
+        ex = pd.DataFrame()
 
-    # EJEMPLOS 10x2: 10 CERRADO + 10 ACTIVO (si existen), priorizando mayor |err_ml1|
-    df["abs_err_ml1"] = pd.to_numeric(df["err_ml1_days"], errors="coerce").abs()
-    examples = (
-        df.sort_values("abs_err_ml1", ascending=False)
-          .groupby("estado", group_keys=False)
-          .head(10)
-          .copy()
-    )
-    write_parquet(examples, out_examples)
+    EVAL.mkdir(parents=True, exist_ok=True)
+    write_parquet(out, OUT_GLOBAL)
+    if len(ex):
+        write_parquet(ex, OUT_EXAMPLES)
 
-    print("\n=== ML2 HARVEST HORIZON AUDIT ===")
-    print(f"KPI global parquet : {out_kpi_global}")
-    print(f"Dist ajustes parquet: {out_dist}")
-    print(f"KPI por estado      : {out_by_estado}")
-    print(f"Examples 10x2       : {out_examples}")
-
-    print("\n--- KPI GLOBAL ---")
-    print(kpi_global.to_string(index=False))
-    print("\n--- AJUSTE DIST ---")
-    print(dist.to_string(index=False))
-    print("\n--- KPI POR ESTADO ---")
-    print(by_estado.to_string(index=False))
-    print("\n--- EXAMPLES (head) ---")
-    cols_show = [c for c in [
-        "ciclo_id", "estado",
-        "fecha_inicio_cosecha_real", "fecha_fin_cosecha_real",
-        "n_harvest_days_pred", "pred_error_horizon_days", "n_harvest_days_final",
-        "err_ml1_days", "err_ml2_days",
-        "ml1_version", "ml2_run_id",
-    ] if c in examples.columns]
-    print(examples[cols_show].head(10).to_string(index=False))
+    print(f"[OK] Global:   {OUT_GLOBAL}")
+    print(out.to_string(index=False))
+    if len(ex):
+        print(f"[OK] Examples: {OUT_EXAMPLES} rows={len(ex)}")
+    else:
+        print("[WARN] Examples no generados (faltan pred ML1/ML2 o no hay filas válidas).")
 
 
 if __name__ == "__main__":

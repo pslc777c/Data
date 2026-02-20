@@ -1,0 +1,12 @@
+[2026-02-20 09:05:54] STEP ml2:apply_desp_poscosecha_ml2
+script=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\models\ml2\apply_desp_poscosecha_ml2.py
+cmd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\venv\Scripts\python.exe C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\models\ml2\apply_desp_poscosecha_ml2.py --mode prod
+cwd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse
+PYTHONPATH=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse;C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src
+OPS_ARTIFACTS_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data
+OPS_LOG_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_090303
+outputs: (none) => no-skip mode
+
+[OK] BACKTEST factor: C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\eval\ml2\backtest_factor_ml2_desp_poscosecha.parquet rows=861,585
+[OK] BACKTEST final : C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\gold\pred_poscosecha_ml2_desp_grado_dia_bloque_destino_final.parquet rows=861,585
+     model=desp_poscosecha_ml2_20260210_122324_404c03d3.pkl as_of_date=2026-02-19

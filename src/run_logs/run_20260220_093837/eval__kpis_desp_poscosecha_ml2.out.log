@@ -1,0 +1,22 @@
+[2026-02-20 09:41:50] STEP eval:kpis_desp_poscosecha_ml2
+script=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\eval\build_kpis_desp_poscosecha_ml2.py
+cmd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\venv\Scripts\python.exe C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\eval\build_kpis_desp_poscosecha_ml2.py
+cwd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse
+PYTHONPATH=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse;C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src
+OPS_ARTIFACTS_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data
+OPS_LOG_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_093837
+outputs: (none) => no-skip mode
+
+[OK] Wrote global : C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\eval\ml2\ml2_desp_poscosecha_eval_global.parquet
+ n_rows  n_dates  mae_log_ml1_w  mae_log_ml2_w  median_ratio_ml1  median_ratio_ml2  p05_ratio_ml2  p95_ratio_ml2  improvement_abs_mae_log_w created_at
+ 229515      239       0.058695       0.029267          1.003617          0.999984       0.933553       1.050895                   0.029429 2026-02-20
+
+[OK] Wrote destino: C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\eval\ml2\ml2_desp_poscosecha_eval_by_destino.parquet rows=3
+  destino  n_rows  mae_log_ml1_w  mae_log_ml2_w  median_ratio_ml2  improvement_abs_mae_log_w
+TINTURADO   79509       0.082203       0.036853          0.999197                   0.045350
+ ARCOIRIS   61521       0.056796       0.023100          1.000426                   0.033696
+   BLANCO   88485       0.038892       0.026737          0.999690                   0.012156
+
+[OK] Wrote dist   : C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\eval\ml2\ml2_desp_poscosecha_eval_ratio_dist.parquet
+     n  ratio_min  ratio_p05  ratio_p25  ratio_median  ratio_p75  ratio_p95  ratio_max created_at
+229515   0.203895   0.933553   0.984981      0.999984   1.012171   1.050895   1.317226 2026-02-20

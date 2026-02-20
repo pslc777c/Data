@@ -1,0 +1,13 @@
+
+==============================================================================================================
+[2026-02-05 22:29:40] PASS 03 | RUN: gold\apply_dh_poscosecha_ml1_on_ml2_seed.py
+CMD: C:\Data-LakeHouse\venv\Scripts\python.exe C:\Data-LakeHouse\src\gold\apply_dh_poscosecha_ml1_on_ml2_seed.py
+CWD: C:\Data-LakeHouse
+==============================================================================================================
+[OK] Wrote: C:\Data-LakeHouse\data\gold\pred_poscosecha_ml2_dh_grado_dia_bloque_destino.parquet rows=751,248 version=20260204_185634
+
+--- RESULT ---
+[2026-02-05 22:29:44] EXIT_CODE=0 | SECONDS=4.21
+LOG: C:\Data-LakeHouse\src\run_logs\run_20260205_222348\pass03__gold__apply_dh_poscosecha_ml1_on_ml2_seed.py.log
+--------------
+

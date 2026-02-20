@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\eval\build_kpis_dh_poscosecha_ml2.py", line 174, in <module>
+    main()
+  File "C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\eval\build_kpis_dh_poscosecha_ml2.py", line 102, in main
+    df["dh_ml1"] = _canon_int(df.get("dh_ml1"))
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\eval\build_kpis_dh_poscosecha_ml2.py", line 40, in _canon_int
+    return pd.to_numeric(s, errors="coerce").astype("Int64")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: data type 'Int64' not understood

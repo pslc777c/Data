@@ -1,0 +1,11 @@
+[2026-02-20 08:44:34] STEP ml2:apply_ajuste_poscosecha_ml2
+script=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\models\ml2\apply_ajuste_poscosecha_ml2.py
+cmd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\venv\Scripts\python.exe C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\models\ml2\apply_ajuste_poscosecha_ml2.py --mode prod
+cwd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse
+PYTHONPATH=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse;C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src
+OPS_ARTIFACTS_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data
+OPS_LOG_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_084129
+outputs: (none) => no-skip mode
+
+[OK] BACKTEST final : C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data\gold\pred_poscosecha_ml2_ajuste_grado_dia_bloque_destino_final.parquet rows=861,585
+     model=ajuste_poscosecha_ml2_20260210_172400_4073afd2.pkl clip_delta=±1.2 as_of_date=2026-02-19

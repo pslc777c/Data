@@ -1,0 +1,20 @@
+
+==============================================================================================================
+[2026-02-05 22:25:32] PASS 01 | RUN: gold\build_pred_kg_cajas_grado_dia_ml1_full.py
+CMD: C:\Data-LakeHouse\venv\Scripts\python.exe C:\Data-LakeHouse\src\gold\build_pred_kg_cajas_grado_dia_ml1_full.py
+CWD: C:\Data-LakeHouse
+==============================================================================================================
+OK -> data\gold\pred_kg_grado_dia_ml1_full.parquet | rows=315,240
+OK -> data\gold\pred_cajas_grado_dia_ml1_full.parquet | rows=315,240
+OK -> data\gold\pred_kg_grado_dia_ml1_agg.parquet | rows=308,940
+OK -> data\gold\pred_cajas_grado_dia_ml1_agg.parquet | rows=308,940
+OK -> data\gold\pred_cajas_dia_ml1_full.parquet | rows=25,008
+[CHECK] coverage tallos_ml1 notna: 1.0000
+[CHECK] coverage peso_tallo_ml1_g notna: 1.0000
+[CHECK] duplicates en agregado operacional (debe ser 0): 0
+
+--- RESULT ---
+[2026-02-05 22:25:36] EXIT_CODE=0 | SECONDS=3.89
+LOG: C:\Data-LakeHouse\src\run_logs\run_20260205_222348\pass01__gold__build_pred_kg_cajas_grado_dia_ml1_full.py.log
+--------------
+

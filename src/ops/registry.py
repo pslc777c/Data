@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from ops.runner import Step
+from src.ops.runner import Step
+
 
 
 def build_registry() -> list[Step]:

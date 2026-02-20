@@ -1,0 +1,15 @@
+[2026-02-20 08:41:46] STEP gold:postprocess_curva_share_smooth_ml1
+script=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\gold\postprocess_curva_share_smooth_ml1.py
+cmd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\venv\Scripts\python.exe C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\gold\postprocess_curva_share_smooth_ml1.py
+cwd=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse
+PYTHONPATH=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse;C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src
+OPS_ARTIFACTS_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data
+OPS_LOG_DIR=C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_084129
+outputs: (none) => no-skip mode
+
+OK -> data\gold\pred_factor_curva_ml1.parquet | rows=25,686
+[CHECK] mass balance vs tallos_proy | max abs diff: 0.000000000029
+[CHECK] share sum per ciclo | min=1.00000000 max=1.00000000
+[CHECK] capped rate pre=0.0000 post=0.0000
+[CAP] global_cap(Q=0.995) = 0.133172
+[SMOOTH] win=5 centered=True

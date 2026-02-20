@@ -1,0 +1,14 @@
+
+==============================================================================================================
+[2026-02-05 22:27:24] PASS 01 | RUN: models\ml2\apply_harvest_horizon_ml2.py
+CMD: C:\Data-LakeHouse\venv\Scripts\python.exe C:\Data-LakeHouse\src\models\ml2\apply_harvest_horizon_ml2.py
+CWD: C:\Data-LakeHouse
+==============================================================================================================
+[OK] PROD factor: C:\Data-LakeHouse\data\gold\factors\factor_ml2_harvest_horizon.parquet rows=623
+[OK] PROD final : C:\Data-LakeHouse\data\gold\pred_harvest_horizon_final_ml2.parquet rows=623
+
+--- RESULT ---
+[2026-02-05 22:27:28] EXIT_CODE=0 | SECONDS=4.45
+LOG: C:\Data-LakeHouse\src\run_logs\run_20260205_222348\pass01__models__ml2__apply_harvest_horizon_ml2.py.log
+--------------
+

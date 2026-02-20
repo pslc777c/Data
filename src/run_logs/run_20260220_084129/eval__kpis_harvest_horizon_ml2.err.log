@@ -1,0 +1,22 @@
+Traceback (most recent call last):
+  File "C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\eval\build_kpis_harvest_horizon_ml2.py", line 131, in <module>
+    main()
+  File "C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\eval\build_kpis_harvest_horizon_ml2.py", line 62, in main
+    pred = read_parquet(IN_FINAL_BT).copy()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\common\io.py", line 13, in read_parquet
+    return pd.read_parquet(path)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\venv\Lib\site-packages\pandas\io\parquet.py", line 671, in read_parquet
+    return impl.read(
+           ^^^^^^^^^^
+  File "C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\venv\Lib\site-packages\pandas\io\parquet.py", line 253, in read
+    path_or_handle, handles, filesystem = _get_path_or_handle(
+                                          ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\venv\Lib\site-packages\pandas\io\parquet.py", line 141, in _get_path_or_handle
+    handles = get_handle(
+              ^^^^^^^^^^^
+  File "C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\venv\Lib\site-packages\pandas\io\common.py", line 935, in get_handle
+    handle = open(handle, ioargs.mode)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\paul.loja\\PYPROYECTOS\\Data-LakeHouse\\Data-LakeHouse\\data\\eval\\ml2\\backtest_pred_harvest_horizon_final_ml2.parquet'

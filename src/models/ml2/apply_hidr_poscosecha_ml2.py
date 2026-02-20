@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from datetime import datetime
 import json
 import numpy as np
 import pandas as pd
@@ -65,18 +64,28 @@ def _pick_first(df: pd.DataFrame, cands: list[str]) -> str | None:
 def _resolve_fecha_post_pred(df: pd.DataFrame) -> str:
     c = _pick_first(df, ["fecha_post_pred_final", "fecha_post_pred_ml2", "fecha_post_pred_ml1", "fecha_post_pred"])
     if c is None:
-        raise KeyError("No encuentro fecha_post_pred. Espero una de: fecha_post_pred_final / fecha_post_pred_ml2 / fecha_post_pred_ml1 / fecha_post_pred")
+        raise KeyError(
+            "No encuentro fecha_post_pred. Espero una de: "
+            "fecha_post_pred_final / fecha_post_pred_ml2 / fecha_post_pred_ml1 / fecha_post_pred"
+        )
     return c
 
 
 def _resolve_factor_hidr_ml1(df: pd.DataFrame) -> str:
     c = _pick_first(df, ["factor_hidr_ml1", "factor_hidr_pred_ml1", "factor_hidr"])
     if c is None:
-        raise KeyError("No encuentro factor_hidr ML1 en universe. Espero: factor_hidr_ml1 / factor_hidr_pred_ml1 / factor_hidr")
+        raise KeyError(
+            "No encuentro factor_hidr ML1 en universe. Espero: factor_hidr_ml1 / factor_hidr_pred_ml1 / factor_hidr"
+        )
     return c
 
 
-def main(mode: str = "backtest") -> None:
+def main(mode: str = "prod") -> None:
+    """
+    mode:
+      - prod: corre sobre todo el universo y escribe OUT_FINAL (y opcionalmente OUT_FACTOR si quieres)
+      - backtest: recorta a fecha<=as_of_date y además escribe OUT_FACTOR
+    """
     as_of_date = _as_of_date_today_minus_1()
     created_at = pd.Timestamp.utcnow()
 
@@ -101,18 +110,22 @@ def main(mode: str = "backtest") -> None:
     df["variedad_canon"] = _canon_str(df["variedad_canon"])
     df["bloque_base"] = _canon_str(df["bloque_base"])
 
-    # filtro backtest <= as_of_date
+    # base: solo filas con fecha válida
     df = df.loc[df["fecha"].notna()].copy()
 
-    # features
+    # ✅ FIX (tu comentario decía “filtro backtest <= as_of_date” pero no lo aplicabas)
+    if mode == "backtest":
+        df = df.loc[df["fecha"] <= as_of_date].copy()
+
+    # features calendario sobre fecha_post_pred (la que uses)
     df["dow"] = df[fecha_post_col].dt.dayofweek.astype("Int64")
     df["month"] = df[fecha_post_col].dt.month.astype("Int64")
     df["weekofyear"] = df[fecha_post_col].dt.isocalendar().week.astype("Int64")
 
     # dh final (si existe)
     if "dh_dias_final" not in df.columns:
-        cdh = _pick_first(df, ["dh_dias_final", "dh_dias_ml2", "dh_dias_ml1", "dh_dias"])
-        if cdh and cdh != "dh_dias_final":
+        cdh = _pick_first(df, ["dh_dias_ml2", "dh_dias_ml1", "dh_dias"])
+        if cdh:
             df = df.rename(columns={cdh: "dh_dias_final"})
     if "dh_dias_final" not in df.columns:
         df["dh_dias_final"] = np.nan
@@ -120,6 +133,12 @@ def main(mode: str = "backtest") -> None:
     df["factor_hidr_ml1"] = pd.to_numeric(df[hidr_ml1_col], errors="coerce")
 
     X = df[["dow", "month", "weekofyear", "dh_dias_final", "destino", "grado", "variedad_canon"]].copy()
+
+    # asegurar tipos cat igual que en train (si tu train los trataba como strings)
+    X["destino"] = X["destino"].astype(str)
+    X["grado"] = pd.to_numeric(X["grado"], errors="coerce").astype("Int64").astype(str)
+    X["variedad_canon"] = X["variedad_canon"].astype(str)
+
     pred_log = pd.to_numeric(pd.Series(pipe.predict(X)), errors="coerce")
 
     lo_log, hi_log = meta.get("apply_clip_log", [-1.2, 1.2])
@@ -134,9 +153,10 @@ def main(mode: str = "backtest") -> None:
         df["factor_hidr_ml1"].fillna(1.0).astype(float) * df["factor_hidr_ml2"].astype(float)
     ).clip(lower=float(lo_f), upper=float(hi_f))
 
+    # meta tracking
     df["ml2_hidr_model_file"] = model_path.name
-    df["as_of_date"] = as_of_date
     df["created_at"] = created_at
+    df["as_of_date"] = as_of_date
 
     # factor output (ligero)
     out_factor = df[[
@@ -145,13 +165,16 @@ def main(mode: str = "backtest") -> None:
         "ml2_hidr_model_file", "as_of_date", "created_at"
     ]].copy().rename(columns={fecha_post_col: "fecha_post_pred_used"})
 
-    EVAL.mkdir(parents=True, exist_ok=True)
-    write_parquet(out_factor, OUT_FACTOR)
     GOLD.mkdir(parents=True, exist_ok=True)
-    write_parquet(df, OUT_FINAL)
+    EVAL.mkdir(parents=True, exist_ok=True)
 
-    print(f"[OK] BACKTEST factor: {OUT_FACTOR} rows={len(out_factor):,}")
-    print(f"[OK] BACKTEST final : {OUT_FINAL} rows={len(df):,}")
+    # ✅ backtest escribe OUT_FACTOR; prod puede no escribirlo (pero no molesta si lo dejas)
+    if mode == "backtest":
+        write_parquet(out_factor, OUT_FACTOR)
+        print(f"[OK] BACKTEST factor: {OUT_FACTOR} rows={len(out_factor):,}")
+
+    write_parquet(df, OUT_FINAL)
+    print(f"[OK] {mode.upper()} final : {OUT_FINAL} rows={len(df):,}")
     print(f"     model={model_path.name} as_of_date={as_of_date.date()} final_clip={lo_f}->{hi_f}")
 
 
@@ -159,7 +182,8 @@ if __name__ == "__main__":
     import argparse
 
     ap = argparse.ArgumentParser()
-    ap.add_argument("--mode", default="backtest", choices=["backtest"])
+    # ✅ FIX CLAVE: permitir prod para que el runner no reviente
+    ap.add_argument("--mode", default="prod", choices=["prod", "backtest"])
     args = ap.parse_args()
 
     main(mode=args.mode)
