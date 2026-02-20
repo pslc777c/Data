@@ -56,10 +56,11 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+      - name: Check local Python
+        shell: pwsh
+        run: |
+          python --version
+          where python
 
       - name: Check ffmpeg (must be installed on runner)
         shell: pwsh
@@ -202,4 +203,4 @@ jobs:
           name: planning-engine-step1-artifacts
           path: ci_artifacts
           if-no-files-found: warn
-          retention-days: 14
+          retention-days: 14git add .
