@@ -16,7 +16,7 @@ on:
         required: false
         default: "false"
       use_sample_data:
-        description: "Use sample data strategy in CI (true/false)"
+        description: "Use sample data strategy (true/false)"
         required: false
         default: "true"
 
@@ -59,8 +59,9 @@ jobs:
           python --version
           where python
 
-      - name: Check ffmpeg (must be installed on runner)
+      - name: Check ffmpeg (optional for Step 1)
         shell: powershell
+        continue-on-error: true
         run: |
           ffmpeg -version
 
@@ -90,8 +91,6 @@ jobs:
           New-Item -ItemType Directory -Force -Path $env:CI_DATA_DIR | Out-Null
           New-Item -ItemType Directory -Force -Path $env:CI_ARTIFACTS_DIR | Out-Null
           New-Item -ItemType Directory -Force -Path (Join-Path $env:CI_ARTIFACTS_DIR "snapshot") | Out-Null
-          Write-Host "Data dir ready: $($env:CI_DATA_DIR)"
-          Write-Host "Artifacts dir ready: $($env:CI_ARTIFACTS_DIR)"
 
       - name: (Optional) Restore sample data cache
         if: ${{ inputs.use_sample_data == 'true' }}
@@ -112,7 +111,6 @@ jobs:
           )
           foreach ($d in $dirs) { New-Item -ItemType Directory -Force -Path $d | Out-Null }
           New-Item -ItemType File -Force -Path "data/.keep" | Out-Null
-          Write-Host "Injected minimal folder structure under data/"
 
       - name: Run pipeline (best-effort)
         id: run_pipeline
@@ -122,10 +120,10 @@ jobs:
           $cmd = "python -m src.ops.runner"
 
           $layer = "${{ inputs.layer }}"
-          if ($layer.Length -gt 0) { $cmd += " --layer $layer" }
+          if ($layer -and $layer.Trim().Length -gt 0) { $cmd += " --layer $layer" }
 
           $step = "${{ inputs.step }}"
-          if ($step.Length -gt 0) { $cmd += " --step $step" }
+          if ($step -and $step.Trim().Length -gt 0) { $cmd += " --step $step" }
 
           if ("${{ inputs.force }}" -eq "true") { $cmd += " --force" }
 
@@ -140,7 +138,6 @@ jobs:
           } else {
             "FAILED_OR_PARTIAL" | Out-File -Encoding ascii -FilePath (Join-Path $env:CI_ARTIFACTS_DIR "pipeline_status.txt")
           }
-          Write-Host "Outcome: ${{ steps.run_pipeline.outcome }}"
           Get-Content (Join-Path $env:CI_ARTIFACTS_DIR "pipeline_status.txt")
 
       - name: Collect run_logs (src/run_logs)
