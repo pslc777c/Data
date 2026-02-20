@@ -51,3 +51,7 @@ src/**/artifacts/
 !.github/workflows/
 !.github/workflows/*.yml
 !.github/workflows/*.yaml
+
+# Allow CI helper scripts
+!scripts/
+!scripts/*.py
