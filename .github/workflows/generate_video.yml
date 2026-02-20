@@ -1,0 +1,205 @@
+name: Generate Planning Video (Step 1 - Run & Collect)
+
+on:
+  workflow_dispatch:
+    inputs:
+      layer:
+        description: "Layer(s) to run: empty=all, or e.g. ml2, or 'bronze,silver'"
+        required: false
+        default: ""
+      step:
+        description: "Step(s) to run: empty=all, or e.g. 'eval:kpis_*'"
+        required: false
+        default: ""
+      force:
+        description: "Force re-run (ignore skip)"
+        required: false
+        type: boolean
+        default: false
+      use_sample_data:
+        description: "Use sample data strategy in CI (recommended)"
+        required: false
+        type: boolean
+        default: true
+
+  push:
+    branches: [ "main" ]
+    paths:
+      - "src/**"
+      - ".github/workflows/generate_video.yml"
+      - "requirements*.txt"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: generate-video-step1-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUNBUFFERED: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  CI_ARTIFACTS_DIR: "ci_artifacts"
+  CI_RUN_LOGS_DIR: "src/run_logs"
+  CI_DATA_DIR: "data"
+  OPS_CI: "1"
+
+jobs:
+  run-and-collect:
+    # ✅ tu runner local Windows
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check ffmpeg (must be installed on runner)
+        shell: pwsh
+        run: |
+          ffmpeg -version
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\AppData\Local\pip\Cache
+          key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt', 'requirements-ci.txt', 'pyproject.toml', 'poetry.lock') }}
+          restore-keys: |
+            pip-${{ runner.os }}-
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          if (Test-Path "requirements-ci.txt") {
+            pip install -r requirements-ci.txt
+          } else {
+            pip install -r requirements.txt
+          }
+          python -c "import sys; print('Python', sys.version)"
+
+      - name: Prepare data folder
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:CI_DATA_DIR | Out-Null
+          New-Item -ItemType Directory -Force -Path $env:CI_ARTIFACTS_DIR | Out-Null
+          New-Item -ItemType Directory -Force -Path (Join-Path $env:CI_ARTIFACTS_DIR "snapshot") | Out-Null
+          Write-Host "Data dir ready: $($env:CI_DATA_DIR)"
+
+      # (Opcional) cache de data; en self-hosted a veces no aporta mucho, pero lo dejamos
+      - name: (Optional) Restore sample data cache
+        if: ${{ inputs.use_sample_data }}
+        uses: actions/cache@v4
+        with:
+          path: data
+          key: sample-data-${{ runner.os }}-${{ hashFiles('data_sample_manifest.txt') }}
+          restore-keys: |
+            sample-data-${{ runner.os }}-
+
+      - name: (Optional) Inject minimal folder structure
+        if: ${{ inputs.use_sample_data }}
+        shell: pwsh
+        run: |
+          $dirs = @(
+            "data/bronze","data/silver","data/preds","data/features",
+            "data/models/ml2","data/gold","data/eval/ml2","data/audit"
+          )
+          foreach ($d in $dirs) { New-Item -ItemType Directory -Force -Path $d | Out-Null }
+          New-Item -ItemType File -Force -Path "data/.keep" | Out-Null
+          Write-Host "Injected minimal folder structure under data/"
+
+      - name: Run pipeline (best-effort)
+        id: run_pipeline
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $cmd = "python -m src.ops.runner"
+          if ("${{ inputs.layer }}".Length -gt 0) { $cmd += " --layer ${{ inputs.layer }}" }
+          if ("${{ inputs.step }}".Length -gt 0)  { $cmd += " --step ${{ inputs.step }}" }
+          if ("${{ inputs.force }}" -eq "true")   { $cmd += " --force" }
+
+          Write-Host "Running: $cmd"
+          iex $cmd
+
+      - name: Mark run status
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:CI_ARTIFACTS_DIR | Out-Null
+          if ("${{ steps.run_pipeline.outcome }}" -eq "success") {
+            "SUCCESS" | Out-File -Encoding ascii -FilePath (Join-Path $env:CI_ARTIFACTS_DIR "pipeline_status.txt")
+          } else {
+            "FAILED_OR_PARTIAL" | Out-File -Encoding ascii -FilePath (Join-Path $env:CI_ARTIFACTS_DIR "pipeline_status.txt")
+          }
+          Write-Host "Outcome: ${{ steps.run_pipeline.outcome }}"
+          Get-Content (Join-Path $env:CI_ARTIFACTS_DIR "pipeline_status.txt")
+
+      - name: Collect logs (run_logs)
+        shell: pwsh
+        run: |
+          $dest = Join-Path $env:CI_ARTIFACTS_DIR "run_logs"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+
+          if (Test-Path $env:CI_RUN_LOGS_DIR) {
+            Copy-Item -Recurse -Force $env:CI_RUN_LOGS_DIR (Join-Path $env:CI_ARTIFACTS_DIR "run_logs_src")
+          } else {
+            "No run_logs dir found." | Out-File -Encoding utf8 -FilePath (Join-Path $env:CI_ARTIFACTS_DIR "run_logs_missing.txt")
+          }
+
+      - name: Collect key outputs (eval/audit/gold)
+        shell: pwsh
+        run: |
+          $subset = Join-Path $env:CI_ARTIFACTS_DIR "data_subset"
+          New-Item -ItemType Directory -Force -Path $subset | Out-Null
+
+          if (Test-Path "data/eval/ml2") {
+            New-Item -ItemType Directory -Force -Path (Join-Path $subset "eval") | Out-Null
+            Copy-Item -Recurse -Force "data/eval/ml2" (Join-Path $subset "eval")
+          }
+
+          if (Test-Path "data/audit") {
+            Copy-Item -Recurse -Force "data/audit" $subset
+          }
+
+          if (Test-Path "data/gold") {
+            Copy-Item -Recurse -Force "data/gold" $subset
+          }
+
+      - name: Create snapshot manifest
+        shell: pwsh
+        run: |
+          python - << 'PY'
+          import os, hashlib, json
+          root = os.environ.get("CI_ARTIFACTS_DIR","ci_artifacts")
+          manifest = []
+          for base, _, files in os.walk(root):
+            for f in files:
+              p = os.path.join(base, f)
+              try:
+                st = os.stat(p)
+                with open(p, "rb") as fh:
+                  h = hashlib.md5(fh.read()).hexdigest()
+                manifest.append({"path": os.path.relpath(p, root), "bytes": st.st_size, "md5": h})
+              except Exception as e:
+                manifest.append({"path": os.path.relpath(p, root), "error": str(e)})
+          manifest.sort(key=lambda x: x.get("path",""))
+          out = os.path.join(root, "snapshot_manifest.json")
+          with open(out, "w", encoding="utf-8") as fh:
+            json.dump(manifest, fh, indent=2, ensure_ascii=False)
+          print(f"Wrote {out} with {len(manifest)} items")
+          PY
+
+      - name: Upload CI artifact bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: planning-engine-step1-artifacts
+          path: ci_artifacts
+          if-no-files-found: warn
+          retention-days: 14

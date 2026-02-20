@@ -46,3 +46,8 @@ src/**/artifacts/
 !/src/
 !/src/**
 
+# --- Allow GitHub Actions workflows ---
+!.github/
+!.github/workflows/
+!.github/workflows/*.yml
+!.github/workflows/*.yaml
