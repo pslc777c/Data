@@ -12,7 +12,7 @@ on:
         required: false
         default: "true"
       force:
-        description: "Force re-run even if outputs exist (true/false)"
+        description: "Force re-run even if outputs exist (true/false) [applies to SILVER only]"
         required: false
         default: "true"
 
@@ -26,7 +26,7 @@ concurrency:
 env:
   PYTHONUNBUFFERED: "1"
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
-  OPS_CI: "0"
+  OPS_CI: "1"
 
 jobs:
   build-baseline:
@@ -68,7 +68,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path data | Out-Null
           New-Item -ItemType Directory -Force -Path src/run_logs | Out-Null
 
-      # OPTIONAL: restore existing baseline cache (useful to inspect / incremental rebuild)
+      # OPTIONAL: restore existing baseline cache (useful for incremental build)
       - name: Restore baseline cache (optional)
         uses: actions/cache@v4
         with:
@@ -77,13 +77,11 @@ jobs:
             data/silver
           key: baseline-data-${{ runner.os }}-${{ inputs.baseline_key }}
 
-      - name: Run Bronze (baseline)
+      - name: Run Bronze (baseline, incremental)
         shell: powershell
         run: |
-          $argsList = @()
-          if ("${{ inputs.force }}" -eq "true") { $argsList += "--force" }
-          $argsList += "--layer"; $argsList += "bronze"
-          Write-Host "Running: python -u -m src.ops.runner $argsList"
+          $argsList = @("--layer","bronze")
+          Write-Host ("Running: python -u -m src.ops.runner " + ($argsList -join " "))
           python -u -m src.ops.runner @argsList
 
       - name: Run Silver (baseline)
@@ -93,7 +91,7 @@ jobs:
           $argsList = @()
           if ("${{ inputs.force }}" -eq "true") { $argsList += "--force" }
           $argsList += "--layer"; $argsList += "silver"
-          Write-Host "Running: python -u -m src.ops.runner $argsList"
+          Write-Host ("Running: python -u -m src.ops.runner " + ($argsList -join " "))
           python -u -m src.ops.runner @argsList
 
       - name: Verify baseline outputs exist
@@ -112,8 +110,6 @@ jobs:
           Write-Host "Baseline OK. bronze files:" $b.Count
           if (Test-Path data/silver) { Write-Host "silver files:" (Get-ChildItem -Recurse data/silver).Count }
 
-      # IMPORTANT: this step must be LAST-ish and uses the SAME key and paths
-      # If the key is new, cache will be saved at end of job automatically.
       - name: Save baseline cache
         uses: actions/cache@v4
         with:
