@@ -1,2 +1,0 @@
-C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\audit\audit_harvest_horizon_ml2.py:123: Pandas4Warning: Timestamp.utcnow is deprecated and will be removed in a future version. Use Timestamp.now('UTC') instead.
-  created_at = pd.Timestamp.utcnow()

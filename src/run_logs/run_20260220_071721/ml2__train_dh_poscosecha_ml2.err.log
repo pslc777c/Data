@@ -1,2 +1,0 @@
-C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\models\ml2\train_dh_poscosecha_ml2.py:196: Pandas4Warning: Timestamp.utcnow is deprecated and will be removed in a future version. Use Timestamp.now('UTC') instead.
-  "created_at_utc": str(pd.Timestamp.utcnow()),

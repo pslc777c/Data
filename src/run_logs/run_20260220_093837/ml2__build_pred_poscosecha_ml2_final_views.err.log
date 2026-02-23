@@ -1,8 +1,0 @@
-C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\gold\build_pred_poscosecha_ml2_final_views.py:67: Pandas4Warning: Timestamp.utcnow is deprecated and will be removed in a future version. Use Timestamp.now('UTC') instead.
-  df["created_at"] = pd.Timestamp.utcnow()
-C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\gold\build_pred_poscosecha_ml2_final_views.py:83: Pandas4Warning: Timestamp.utcnow is deprecated and will be removed in a future version. Use Timestamp.now('UTC') instead.
-  out_dbd["created_at"] = pd.Timestamp.utcnow()
-C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\gold\build_pred_poscosecha_ml2_final_views.py:97: Pandas4Warning: Timestamp.utcnow is deprecated and will be removed in a future version. Use Timestamp.now('UTC') instead.
-  out_dd["created_at"] = pd.Timestamp.utcnow()
-C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\gold\build_pred_poscosecha_ml2_final_views.py:109: Pandas4Warning: Timestamp.utcnow is deprecated and will be removed in a future version. Use Timestamp.now('UTC') instead.
-  out_dt["created_at"] = pd.Timestamp.utcnow()

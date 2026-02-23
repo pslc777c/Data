@@ -1,2 +1,0 @@
-C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\audit\audit_ajuste_poscosecha_ml2.py:31: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
-  return datetime.utcnow().strftime("%Y%m%d_%H%M%S")

@@ -1,2 +1,0 @@
-C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\audit\audit_ml1_curva_share_vs_real.py:82: RuntimeWarning: invalid value encountered in divide
-  pm = np.where(sm > 0, m / sm, 0.0)

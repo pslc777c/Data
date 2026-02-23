@@ -1,4 +1,0 @@
-layer,step,ok,skipped,seconds,returncode,stdout,stderr
-ml2,build_ds_dh_poscosecha_ml2_v1,1,0,2.228,0,C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_071721\ml2__build_ds_dh_poscosecha_ml2_v1.out.log,C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_071721\ml2__build_ds_dh_poscosecha_ml2_v1.err.log
-ml2,train_dh_poscosecha_ml2,1,0,6.109,0,C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_071721\ml2__train_dh_poscosecha_ml2.out.log,C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_071721\ml2__train_dh_poscosecha_ml2.err.log
-ml2,apply_dh_poscosecha_ml2,0,0,0.539,2,C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_071721\ml2__apply_dh_poscosecha_ml2.out.log,C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_071721\ml2__apply_dh_poscosecha_ml2.err.log

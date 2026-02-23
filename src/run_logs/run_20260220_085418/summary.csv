@@ -1,2 +1,0 @@
-layer,step,ok,skipped,seconds,returncode,stdout,stderr
-eval,kpis_harvest_horizon_ml2,1,0,1.258,0,C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_085418\eval__kpis_harvest_horizon_ml2.out.log,C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\src\run_logs\run_20260220_085418\eval__kpis_harvest_horizon_ml2.err.log
