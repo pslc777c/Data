@@ -51,27 +51,29 @@ jobs:
             data/silver
           key: baseline-data-${{ runner.os }}-${{ inputs.baseline_key }}
 
-      - name: Seed Bronze from local snapshot (data_backup)
+      - name: Seed Bronze from local snapshot (no DB)
         shell: powershell
         run: |
-          $src = "data_backup\bronze"
+          $src = "C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data_backup\bronze"
           $dst = "data\bronze"
 
-          if (Test-Path $dst) {
-            Write-Host "data/bronze already exists; skipping seed."
-            exit 0
-          }
+          Write-Host "Seeding Bronze..."
+          Write-Host "SRC = $src"
+          Write-Host "DST = $dst"
 
           if (!(Test-Path $src)) {
-            throw "Seed source not found: $src. Ensure baseline parquet snapshot exists on runner."
+            throw "Seed source not found: $src. This path must exist on the RUNNER machine and be accessible to the runner user."
           }
 
-          New-Item -ItemType Directory -Force -Path $dst | Out-Null
-          Write-Host "Seeding bronze snapshot: $src -> $dst"
+          New-Item -ItemType Directory --Force --Path $dst | Out-Null
 
-          # robocopy returns codes 0-7 as success. 8+ is failure.
-          robocopy $src $dst /E /COPY:DAT /R:2 /W:2
-          if ($LASTEXITCODE -ge 8) { throw "Robocopy bronze failed with code $LASTEXITCODE" }
+          robocopy $src $dst /C /COPY:DAT /R:2 /W:2
+          if ($LASTEXITCODE -ge 8) { throw "Robocopy failed: $LASTEXITCODE" }
+
+          $count = (Get-ChildItem -Recurse $dst -ErrorAction SilentlyContinue | Measure-Object).Count
+          if ($count -eq 0) { throw "data/bronze is empty after seed copy" }
+
+          Write-Host "Seed OK. bronze files: $count"
 
       - name: Seed Silver from local snapshot (data_backup)
         if: ${{ inputs.include_silver == 'true' }}
