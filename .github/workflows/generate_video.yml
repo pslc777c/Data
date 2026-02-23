@@ -4,11 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       layer:
-        description: "Layer(s) to run: empty=all, or e.g. ml2 or 'bronze,silver'"
+        description: "Layer(s) to run: empty=all, or e.g. ml2 or 'silver,ml2'"
         required: false
         default: ""
       step:
-        description: "Step(s) to run: empty=all, or e.g. 'eval:kpis_*'"
+        description: "Step(s) to run: empty=all, or e.g. 'kpis_*' (names only, runner matches Step.name)"
+        required: false
+        default: ""
+      start_from:
+        description: "Start from layer (inclusive). e.g. silver/features/ml2. Empty=default behavior."
         required: false
         default: ""
       force:
@@ -16,9 +20,13 @@ on:
         required: false
         default: "false"
       use_sample_data:
-        description: "Use sample data strategy (true/false)"
+        description: "Use baseline cache strategy (true/false). true => restore baseline cache and default start_from=silver"
         required: false
         default: "true"
+      baseline_key:
+        description: "Baseline cache key suffix to restore (must match Build Baseline Cache workflow)."
+        required: false
+        default: "v1"
 
   push:
     branches: [ "main" ]
@@ -87,9 +95,7 @@ jobs:
         shell: powershell
         run: |
           $userScripts = Join-Path $env:APPDATA "Python\Python312\Scripts"
-          $userSite    = Join-Path $env:APPDATA "Python\Python312\site-packages"
           Write-Host "UserScripts=$userScripts"
-          Write-Host "UserSite=$userSite"
           echo $userScripts | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Verify imports
@@ -104,16 +110,34 @@ jobs:
           New-Item -ItemType Directory -Force -Path $env:CI_ARTIFACTS_DIR | Out-Null
           New-Item -ItemType Directory -Force -Path (Join-Path $env:CI_ARTIFACTS_DIR "snapshot") | Out-Null
 
-      - name: (Optional) Restore sample data cache
+      # ✅ BASELINE CACHE RESTORE (cross-run)
+      - name: (Optional) Restore baseline cache (bronze/silver)
         if: ${{ inputs.use_sample_data == 'true' }}
         uses: actions/cache@v4
         with:
-          path: data
-          key: sample-data-${{ runner.os }}-${{ hashFiles('data_sample_manifest.txt') }}
-          restore-keys: |
-            sample-data-${{ runner.os }}-
+          path: |
+            data/bronze
+            data/silver
+          key: baseline-data-${{ runner.os }}-${{ inputs.baseline_key }}
 
-      - name: (Optional) Inject minimal folder structure (no real data)
+      # ✅ Guardrail: fail fast if baseline is missing/empty
+      - name: (Optional) Validate baseline presence
+        if: ${{ inputs.use_sample_data == 'true' }}
+        shell: powershell
+        run: |
+          if (!(Test-Path "data/bronze")) { throw "Baseline cache not present: data/bronze missing. Run 'Build Baseline Data Cache' first or change baseline_key." }
+          $b = Get-ChildItem -Recurse data/bronze -ErrorAction SilentlyContinue
+          if ($b.Count -eq 0) { throw "Baseline cache not present: data/bronze empty. Run baseline workflow or change baseline_key." }
+          Write-Host "Baseline restored OK. bronze files:" $b.Count
+          if (Test-Path "data/silver") {
+            $s = Get-ChildItem -Recurse data/silver -ErrorAction SilentlyContinue
+            Write-Host "Silver files:" $s.Count
+          } else {
+            Write-Host "data/silver not present (OK if pipeline can rebuild silver from bronze)."
+          }
+
+      # (Optional) Ensure folder structure exists (does NOT overwrite baseline)
+      - name: (Optional) Ensure folder structure
         if: ${{ inputs.use_sample_data == 'true' }}
         shell: powershell
         run: |
@@ -131,6 +155,16 @@ jobs:
         run: |
           $argsList = @()
 
+          # Default: if use_sample_data=true and no explicit start_from => start at silver
+          $startFrom = "${{ inputs.start_from }}"
+          if ("${{ inputs.use_sample_data }}" -eq "true" -and -not $startFrom) {
+            $startFrom = "silver"
+          }
+          if ($startFrom) {
+            $argsList += "--start-from"
+            $argsList += $startFrom
+          }
+
           if ("${{ inputs.layer }}") {
             $argsList += "--layer"
             $argsList += "${{ inputs.layer }}"
@@ -145,8 +179,8 @@ jobs:
             $argsList += "--force"
           }
 
-          Write-Host "Running python -m src.ops.runner $argsList"
-          python -m src.ops.runner @argsList
+          Write-Host "Running python -u -m src.ops.runner $argsList"
+          python -u -m src.ops.runner @argsList
 
       - name: Mark run status
         shell: powershell

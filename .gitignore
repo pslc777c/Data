@@ -1,61 +1,82 @@
+# =========================
 # Python / venv
+# =========================
 venv/
 .venv/
 __pycache__/
 *.pyc
+**/__pycache__/
+**/*.pyc
 
-# Data / artifacts
+# =========================
+# Runtime data / artifacts (no versionar)
+# =========================
 data/
+ci_artifacts/
+baseline_bundle/
+baseline_cache/
 *.parquet
 *.pkl
 *.joblib
-*.csv
-*.log
 
+# OJO: NO ignores *.csv y *.log globalmente porque
+# - requirements*.txt son txt (ok)
+# - pero podrías necesitar CSV de docs o plantillas.
+# Mejor ignora SOLO logs de runtime:
+*.log
+**/*.log
+
+# =========================
+# Execution logs (no versionar)
+# =========================
+src/run_logs/
+
+# =========================
 # Notebooks / misc
+# =========================
 .ipynb_checkpoints/
 .DS_Store
 
-# Secrets
+# =========================
+# Secrets (no versionar)
+# =========================
 .env
 config/settings.yaml
 config/*.secret*
 
-# Nunca versionar caches/bytecode
-**/__pycache__/
-**/*.pyc
-
-# Nunca versionar logs de ejecución
-src/run_logs/
-**/*.log
-
-# Si generas outputs/artefactos dentro de src (opcional)
+# =========================
+# Optional outputs under src
+# =========================
 src/**/outputs/
 src/**/artifacts/
 
-# --- Repo oficial: solo src + docs + readme + meta ---
-# Ignorar TODO por defecto
+# =========================
+# Restrictive allow-list for repo
+# (Ignore everything, then allow only what we want)
+# =========================
 /*
 
-# Permitir lo mínimo
+# Allow repo meta
 !/.gitignore
 !/README.md
 !/pyproject.toml
-!/docs/
-!/docs/**
+!/requirements-ci.txt
+!/requirements.txt
+!/requirements*.txt
+
+# Allow source and docs
 !/src/
 !/src/**
+!/docs/
+!/docs/**
 
-# --- Allow GitHub Actions workflows ---
-!.github/
-!.github/workflows/
-!.github/workflows/*.yml
-!.github/workflows/*.yaml
+# Allow GitHub Actions workflows (must unignore parents first)
+!/.github/
+!/.github/workflows/
+!/.github/workflows/**
+!/.github/**/*.yml
+!/.github/**/*.yaml
 
 # Allow CI helper scripts
-!scripts/
-!scripts/*.py
-
-# Allow CI requirements
-!requirements-ci.txt
-
+!/scripts/
+!/scripts/**

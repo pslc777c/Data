@@ -51,6 +51,9 @@ class RunResult:
 # INTERNALS
 # =========================
 
+LAYER_ORDER = ["bronze", "silver", "features", "ml1", "ml2", "gold", "eval", "audit"]
+
+
 def _fmt_cmd(cmd: list[str]) -> str:
     def q(s: str) -> str:
         return f'"{s}"' if (" " in s or "\t" in s) else s
@@ -217,6 +220,15 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--step", default="", help="Comma-separated step names to run")
     p.add_argument("--from", dest="from_step", default="", help="Run from this step (inclusive)")
     p.add_argument("--to", dest="to_step", default="", help="Run to this step (inclusive)")
+
+    # ✅ NEW: start-from layer
+    p.add_argument(
+        "--start-from",
+        dest="start_from_layer",
+        default="",
+        help=f"Start pipeline from this layer (inclusive). Choices: {','.join(LAYER_ORDER)}",
+    )
+
     p.add_argument("--force", action="store_true", help="Run even if outputs exist")
     p.add_argument("--dry-run", action="store_true", help="Print/run plan without executing scripts")
     p.add_argument("--python", default="", help="Override python executable (default: current)")
@@ -225,8 +237,27 @@ def _parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def _select_steps(all_steps: list[Step], layers: set[str], names: set[str], from_step: str, to_step: str) -> list[Step]:
+def _select_steps(
+    all_steps: list[Step],
+    layers: set[str],
+    names: set[str],
+    from_step: str,
+    to_step: str,
+    start_from_layer: str,
+) -> list[Step]:
     selected = all_steps
+
+    # ✅ Apply start-from layer FIRST (on full registry order)
+    if start_from_layer:
+        start = start_from_layer.strip().lower()
+        if start not in LAYER_ORDER:
+            raise SystemExit(
+                f"[ERROR] --start-from '{start_from_layer}' invalid. "
+                f"Use one of: {', '.join(LAYER_ORDER)}"
+            )
+        start_idx = LAYER_ORDER.index(start)
+        allowed_layers = set(LAYER_ORDER[start_idx:])
+        selected = [s for s in selected if s.layer.lower() in allowed_layers]
 
     if layers:
         selected = [s for s in selected if s.layer.lower() in layers]
@@ -269,7 +300,14 @@ def main() -> int:
     layers = {x.strip().lower() for x in args.layer.split(",") if x.strip()}
     names = {x.strip() for x in args.step.split(",") if x.strip()}
 
-    plan = _select_steps(all_steps, layers, names, args.from_step, args.to_step)
+    plan = _select_steps(
+        all_steps=all_steps,
+        layers=layers,
+        names=names,
+        from_step=args.from_step,
+        to_step=args.to_step,
+        start_from_layer=args.start_from_layer,
+    )
 
     if not plan:
         print("[WARN] No steps selected.")
@@ -322,7 +360,16 @@ def _write_summary(run_dir: Path, results: list[RunResult]) -> None:
         w = csv.writer(f)
         w.writerow(["layer", "step", "ok", "skipped", "seconds", "returncode", "stdout", "stderr"])
         for r in results:
-            w.writerow([r.step.layer, r.step.name, int(r.ok), int(r.skipped), f"{r.seconds:.3f}", r.returncode, str(r.stdout_path), str(r.stderr_path)])
+            w.writerow([
+                r.step.layer,
+                r.step.name,
+                int(r.ok),
+                int(r.skipped),
+                f"{r.seconds:.3f}",
+                r.returncode,
+                str(r.stdout_path),
+                str(r.stderr_path),
+            ])
 
 
 if __name__ == "__main__":

@@ -1,0 +1,123 @@
+name: Build Baseline Data Cache (Bronze/Silver)
+
+on:
+  workflow_dispatch:
+    inputs:
+      baseline_key:
+        description: "Cache key suffix. Change this to refresh baseline (e.g., v1 -> v2)."
+        required: false
+        default: "v1"
+      include_silver:
+        description: "Also build silver (true/false)"
+        required: false
+        default: "true"
+      force:
+        description: "Force re-run even if outputs exist (true/false)"
+        required: false
+        default: "true"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-baseline-cache-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUNBUFFERED: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  OPS_CI: "0"
+
+jobs:
+  build-baseline:
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          clean: true
+
+      - name: Check Python
+        shell: powershell
+        run: |
+          python --version
+          where python
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\AppData\Local\pip\Cache
+          key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt', 'requirements-ci.txt', 'pyproject.toml', 'poetry.lock') }}
+          restore-keys: |
+            pip-${{ runner.os }}-
+
+      - name: Install dependencies (user site-packages)
+        shell: powershell
+        run: |
+          python -m pip --version
+          python -m pip install --user -r requirements-ci.txt
+          python -c "import yaml, pandas, pyarrow; print('Imports OK')"
+
+      - name: Prepare folders
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path data | Out-Null
+          New-Item -ItemType Directory -Force -Path src/run_logs | Out-Null
+
+      # OPTIONAL: restore existing baseline cache (useful to inspect / incremental rebuild)
+      - name: Restore baseline cache (optional)
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/bronze
+            data/silver
+          key: baseline-data-${{ runner.os }}-${{ inputs.baseline_key }}
+
+      - name: Run Bronze (baseline)
+        shell: powershell
+        run: |
+          $argsList = @()
+          if ("${{ inputs.force }}" -eq "true") { $argsList += "--force" }
+          $argsList += "--layer"; $argsList += "bronze"
+          Write-Host "Running: python -u -m src.ops.runner $argsList"
+          python -u -m src.ops.runner @argsList
+
+      - name: Run Silver (baseline)
+        if: ${{ inputs.include_silver == 'true' }}
+        shell: powershell
+        run: |
+          $argsList = @()
+          if ("${{ inputs.force }}" -eq "true") { $argsList += "--force" }
+          $argsList += "--layer"; $argsList += "silver"
+          Write-Host "Running: python -u -m src.ops.runner $argsList"
+          python -u -m src.ops.runner @argsList
+
+      - name: Verify baseline outputs exist
+        shell: powershell
+        run: |
+          if (!(Test-Path "data/bronze")) { throw "Missing data/bronze after baseline build" }
+          $b = Get-ChildItem -Recurse data/bronze -ErrorAction SilentlyContinue
+          if ($b.Count -eq 0) { throw "data/bronze is empty after baseline build" }
+
+          if ("${{ inputs.include_silver }}" -eq "true") {
+            if (!(Test-Path "data/silver")) { throw "Missing data/silver after baseline build" }
+            $s = Get-ChildItem -Recurse data/silver -ErrorAction SilentlyContinue
+            if ($s.Count -eq 0) { throw "data/silver is empty after baseline build" }
+          }
+
+          Write-Host "Baseline OK. bronze files:" $b.Count
+          if (Test-Path data/silver) { Write-Host "silver files:" (Get-ChildItem -Recurse data/silver).Count }
+
+      # IMPORTANT: this step must be LAST-ish and uses the SAME key and paths
+      # If the key is new, cache will be saved at end of job automatically.
+      - name: Save baseline cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/bronze
+            data/silver
+          key: baseline-data-${{ runner.os }}-${{ inputs.baseline_key }}
