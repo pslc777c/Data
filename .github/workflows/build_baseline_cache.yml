@@ -1,4 +1,4 @@
-name: Build Baseline Data Cache (Bronze/Silver)
+name: Build Baseline Data Cache (Seed from local snapshot)
 
 on:
   workflow_dispatch:
@@ -8,11 +8,7 @@ on:
         required: false
         default: "v1"
       include_silver:
-        description: "Also build silver (true/false)"
-        required: false
-        default: "true"
-      force:
-        description: "Force re-run even if outputs exist (true/false) [applies to SILVER only]"
+        description: "Also seed silver (true/false)"
         required: false
         default: "true"
 
@@ -26,7 +22,7 @@ concurrency:
 env:
   PYTHONUNBUFFERED: "1"
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
-  OPS_CI: "1"
+  OPS_CI: "0"
 
 jobs:
   build-baseline:
@@ -40,35 +36,13 @@ jobs:
           fetch-depth: 1
           clean: true
 
-      - name: Check Python
-        shell: powershell
-        run: |
-          python --version
-          where python
-
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~\AppData\Local\pip\Cache
-          key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt', 'requirements-ci.txt', 'pyproject.toml', 'poetry.lock') }}
-          restore-keys: |
-            pip-${{ runner.os }}-
-
-      - name: Install dependencies (user site-packages)
-        shell: powershell
-        run: |
-          python -m pip --version
-          python -m pip install --user -r requirements-ci.txt
-          python -c "import yaml, pandas, pyarrow; print('Imports OK')"
-
       - name: Prepare folders
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path data | Out-Null
           New-Item -ItemType Directory -Force -Path src/run_logs | Out-Null
 
-      # OPTIONAL: restore existing baseline cache (useful for incremental build)
+      # OPTIONAL: restore existing baseline cache first (if present)
       - name: Restore baseline cache (optional)
         uses: actions/cache@v4
         with:
@@ -77,34 +51,61 @@ jobs:
             data/silver
           key: baseline-data-${{ runner.os }}-${{ inputs.baseline_key }}
 
-      - name: Run Bronze (baseline, incremental)
+      - name: Seed Bronze from local snapshot (data_backup)
         shell: powershell
         run: |
-          $argsList = @("--layer","bronze")
-          Write-Host ("Running: python -u -m src.ops.runner " + ($argsList -join " "))
-          python -u -m src.ops.runner @argsList
+          $src = "data_backup\bronze"
+          $dst = "data\bronze"
 
-      - name: Run Silver (baseline)
+          if (Test-Path $dst) {
+            Write-Host "data/bronze already exists; skipping seed."
+            exit 0
+          }
+
+          if (!(Test-Path $src)) {
+            throw "Seed source not found: $src. Ensure baseline parquet snapshot exists on runner."
+          }
+
+          New-Item -ItemType Directory -Force -Path $dst | Out-Null
+          Write-Host "Seeding bronze snapshot: $src -> $dst"
+
+          # robocopy returns codes 0-7 as success. 8+ is failure.
+          robocopy $src $dst /E /COPY:DAT /R:2 /W:2
+          if ($LASTEXITCODE -ge 8) { throw "Robocopy bronze failed with code $LASTEXITCODE" }
+
+      - name: Seed Silver from local snapshot (data_backup)
         if: ${{ inputs.include_silver == 'true' }}
         shell: powershell
         run: |
-          $argsList = @()
-          if ("${{ inputs.force }}" -eq "true") { $argsList += "--force" }
-          $argsList += "--layer"; $argsList += "silver"
-          Write-Host ("Running: python -u -m src.ops.runner " + ($argsList -join " "))
-          python -u -m src.ops.runner @argsList
+          $src = "data_backup\silver"
+          $dst = "data\silver"
+
+          if (Test-Path $dst) {
+            Write-Host "data/silver already exists; skipping seed."
+            exit 0
+          }
+
+          if (!(Test-Path $src)) {
+            throw "Seed source not found: $src. Ensure baseline parquet snapshot exists on runner."
+          }
+
+          New-Item -ItemType Directory -Force -Path $dst | Out-Null
+          Write-Host "Seeding silver snapshot: $src -> $dst"
+
+          robocopy $src $dst /E /COPY:DAT /R:2 /W:2
+          if ($LASTEXITCODE -ge 8) { throw "Robocopy silver failed with code $LASTEXITCODE" }
 
       - name: Verify baseline outputs exist
         shell: powershell
         run: |
-          if (!(Test-Path "data/bronze")) { throw "Missing data/bronze after baseline build" }
+          if (!(Test-Path "data/bronze")) { throw "Missing data/bronze after seeding" }
           $b = Get-ChildItem -Recurse data/bronze -ErrorAction SilentlyContinue
-          if ($b.Count -eq 0) { throw "data/bronze is empty after baseline build" }
+          if ($b.Count -eq 0) { throw "data/bronze is empty after seeding" }
 
           if ("${{ inputs.include_silver }}" -eq "true") {
-            if (!(Test-Path "data/silver")) { throw "Missing data/silver after baseline build" }
+            if (!(Test-Path "data/silver")) { throw "Missing data/silver after seeding" }
             $s = Get-ChildItem -Recurse data/silver -ErrorAction SilentlyContinue
-            if ($s.Count -eq 0) { throw "data/silver is empty after baseline build" }
+            if ($s.Count -eq 0) { throw "data/silver is empty after seeding" }
           }
 
           Write-Host "Baseline OK. bronze files:" $b.Count
