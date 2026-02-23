@@ -118,19 +118,19 @@ def main() -> None:
     fact["tallos_h_persona_dia"] = fact["tallos_procesados_dia"] / fact["horas_presenciales_dia"]
 
     # Cap por proceso (1%–99%)
+    # Cap por proceso (1%–99%)
 def cap_percentiles(g: pd.DataFrame) -> pd.DataFrame:
     g = g.copy()
 
     x = g["tallos_h_persona_dia"].astype(float).values
     x = x[~np.isnan(x)]
     if x.size < 5:
-        return g
+         return g
 
     p1 = float(np.nanpercentile(x, 1))
     p99 = float(np.nanpercentile(x, 99))
     g["tallos_h_persona_dia"] = g["tallos_h_persona_dia"].clip(p1, p99)
     return g
-
 
     fact = (
         fact.groupby("proceso", dropna=False, group_keys=False)
