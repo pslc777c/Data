@@ -65,9 +65,9 @@ jobs:
             throw "Seed source not found: $src. This path must exist on the RUNNER machine and be accessible to the runner user."
           }
 
-          New-Item -ItemType Directory --Force --Path $dst | Out-Null
+          New-Item -ItemType Directory -Force -Path $dst | Out-Null
 
-          robocopy $src $dst /C /COPY:DAT /R:2 /W:2
+          robocopy $src $dst /E /COPY:DAT /R:2 /W:2
           if ($LASTEXITCODE -ge 8) { throw "Robocopy failed: $LASTEXITCODE" }
 
           $count = (Get-ChildItem -Recurse $dst -ErrorAction SilentlyContinue | Measure-Object).Count
@@ -79,20 +79,18 @@ jobs:
         if: ${{ inputs.include_silver == 'true' }}
         shell: powershell
         run: |
-          $src = "data_backup\silver"
+          $src = "C:\Users\paul.loja\PYPROYECTOS\Data-LakeHouse\Data-LakeHouse\data_backup\silver"
           $dst = "data\silver"
 
-          if (Test-Path $dst) {
-            Write-Host "data/silver already exists; skipping seed."
-            exit 0
-          }
+          Write-Host "Seeding Silver..."
+          Write-Host "SRC = $src"
+          Write-Host "DST = $dst"
 
           if (!(Test-Path $src)) {
-            throw "Seed source not found: $src. Ensure baseline parquet snapshot exists on runner."
+            throw "Seed source not found: $src"
           }
 
           New-Item -ItemType Directory -Force -Path $dst | Out-Null
-          Write-Host "Seeding silver snapshot: $src -> $dst"
 
           robocopy $src $dst /E /COPY:DAT /R:2 /W:2
           if ($LASTEXITCODE -ge 8) { throw "Robocopy silver failed with code $LASTEXITCODE" }
