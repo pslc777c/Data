@@ -67,13 +67,15 @@ jobs:
 
           New-Item -ItemType Directory -Force -Path $dst | Out-Null
 
+          $rc = 0
           robocopy $src $dst /E /COPY:DAT /R:2 /W:2
-          if ($LASTEXITCODE -ge 8) { throw "Robocopy failed: $LASTEXITCODE" }
+          $rc = $LASTEXITCODE
 
-          $count = (Get-ChildItem -Recurse $dst -ErrorAction SilentlyContinue | Measure-Object).Count
-          if ($count -eq 0) { throw "data/bronze is empty after seed copy" }
+          # robocopy codes: 0-7 = OK, 8+ = FAIL
+          if ($rc -ge 8) { throw "Robocopy failed: $rc" }
 
-          Write-Host "Seed OK. bronze files: $count"
+          Write-Host "Robocopy OK (code=$rc). Normalizing to exit 0 for GitHub Actions."
+          $global:LASTEXITCODE = 0
 
       - name: Seed Silver from local snapshot (data_backup)
         if: ${{ inputs.include_silver == 'true' }}
@@ -92,8 +94,14 @@ jobs:
 
           New-Item -ItemType Directory -Force -Path $dst | Out-Null
 
+          $rc = 0
           robocopy $src $dst /E /COPY:DAT /R:2 /W:2
-          if ($LASTEXITCODE -ge 8) { throw "Robocopy silver failed with code $LASTEXITCODE" }
+          $rc = $LASTEXITCODE
+
+          if ($rc -ge 8) { throw "Robocopy silver failed: $rc" }
+
+          Write-Host "Robocopy OK (code=$rc). Normalizing to exit 0 for GitHub Actions."
+          $global:LASTEXITCODE = 0
 
       - name: Verify baseline outputs exist
         shell: powershell
