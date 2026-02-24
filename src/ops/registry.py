@@ -350,6 +350,23 @@ def build_registry() -> list[Step]:
             args=["--mode", "prod"],
         ),
 
+
+        # ---- GOLD ML2 (original actual) ----
+        Step("build_pred_tallos_ml2_full", "ml2", "src/gold/build_pred_tallos_ml2_full.py", []),
+        Step("build_pred_kg_cajas_ml2", "ml2", "src/gold/build_pred_kg_cajas_ml2.py", []),
+
+        Step(
+            "build_pred_poscosecha_ml2_seed_mix_grado_dia",
+            "ml2",
+            "src/gold/build_pred_poscosecha_ml2_seed_mix_grado_dia.py",
+            outputs_rel=[
+                "gold/pred_poscosecha_ml2_seed_grado_dia_bloque_destino.parquet",
+                "gold/pred_poscosecha_ml2_seed_dia_destino.parquet",
+                "gold/pred_poscosecha_ml2_seed_dia_total.parquet",
+            ],
+        ),
+
+        
         # ---- Pos-cosecha ML2 (puro: ds v1 -> train -> apply) ----
         Step("build_ds_dh_poscosecha_ml2_v1", "ml2", "src/gold/build_ds_dh_poscosecha_ml2_v1.py", []),
         Step(
@@ -423,20 +440,7 @@ def build_registry() -> list[Step]:
             args=["--mode", "prod"],
         ),
 
-        # ---- GOLD ML2 (original actual) ----
-        Step("build_pred_tallos_ml2_full", "ml2", "src/gold/build_pred_tallos_ml2_full.py", []),
-        Step("build_pred_kg_cajas_ml2", "ml2", "src/gold/build_pred_kg_cajas_ml2.py", []),
 
-        Step(
-            "build_pred_poscosecha_ml2_seed_mix_grado_dia",
-            "ml2",
-            "src/gold/build_pred_poscosecha_ml2_seed_mix_grado_dia.py",
-            outputs_rel=[
-                "gold/pred_poscosecha_ml2_seed_grado_dia_bloque_destino.parquet",
-                "gold/pred_poscosecha_ml2_seed_dia_destino.parquet",
-                "gold/pred_poscosecha_ml2_seed_dia_total.parquet",
-            ],
-        ),
 
         # ---- POSCOSECHA ML2 (ML1-on-ML2 chain: original actual) ----
         Step(
