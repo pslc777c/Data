@@ -148,34 +148,64 @@ jobs:
           foreach ($d in $dirs) { New-Item -ItemType Directory -Force -Path $d | Out-Null }
           New-Item -ItemType File -Force -Path "data/.keep" | Out-Null
 
-      - name: Build config/settings.yaml from template + secrets (sanitize)
+      - name: Build config/settings.yaml from template + secrets (binary clean)
         shell: powershell
         run: |
+          $template = "config/settings.template.yaml"
+          $out = "config/settings.yaml"
           New-Item -ItemType Directory -Force -Path "config" | Out-Null
+          if (-not (Test-Path $template)) { throw "Missing $template" }
 
-          if (-not (Test-Path "config/settings.template.yaml")) {
-            throw "Missing config/settings.template.yaml"
-          }
-
-          # Read template as raw text
-          $content = Get-Content "config/settings.template.yaml" -Raw
+          # Read template bytes -> decode as UTF8 (ignoring invalid chars)
+          $tplBytes = [System.IO.File]::ReadAllBytes($template)
+          $enc = New-Object System.Text.UTF8Encoding($false, $false)  # no BOM, do not throw on invalid
+          $content = $enc.GetString($tplBytes)
 
           # Replace placeholders
           $content = $content.Replace("__SQL_USER__", "${{ secrets.SQL_USER }}")
           $content = $content.Replace("__SQL_PASSWORD__", "${{ secrets.SQL_PASSWORD }}")
 
-          # Sanitize: remove non-printable control chars except TAB(0x09), LF(0x0A), CR(0x0D)
-          $content = ($content.ToCharArray() | Where-Object {
-            $c = [int][char]$_
-            ($c -eq 9) -or ($c -eq 10) -or ($c -eq 13) -or ($c -ge 32)
-          }) -join ''
+          # Remove YAML-illegal control chars (including 0x8D)
+          $sb = New-Object System.Text.StringBuilder
+          foreach ($ch in $content.ToCharArray()) {
+            $c = [int][char]$ch
+            if ($c -eq 9 -or $c -eq 10 -or $c -eq 13 -or $c -ge 32) {
+              [void]$sb.Append($ch)
+            }
+          }
+          $clean = $sb.ToString()
 
-          # Write as UTF-8 without BOM (more stable for parsers)
+          # Write as UTF8 no BOM, explicit
           $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-          [System.IO.File]::WriteAllText((Join-Path (Get-Location) "config/settings.yaml"), $content, $utf8NoBom)
+          [System.IO.File]::WriteAllText($out, $clean, $utf8NoBom)
 
-          if (-not (Test-Path "config/settings.yaml")) { throw "settings.yaml was not created" }
-          Write-Host "OK: config/settings.yaml created (sanitized)"
+          if (-not (Test-Path $out)) { throw "Failed to write $out" }
+          Write-Host "OK: wrote config/settings.yaml (binary clean)"
+
+      - name: Diagnose control chars in config/settings.yaml
+        shell: powershell
+        run: |
+          $path = "config/settings.yaml"
+          if (-not (Test-Path $path)) { throw "Missing $path" }
+
+          $bytes = [System.IO.File]::ReadAllBytes($path)
+          $bad = @()
+          for ($i=0; $i -lt $bytes.Length; $i++) {
+            $b = $bytes[$i]
+            if (($b -lt 32 -and $b -ne 9 -and $b -ne 10 -and $b -ne 13) -or $b -eq 141) {
+              $bad += "pos=$i byte=0x{0:X2}" -f $b
+              if ($bad.Count -ge 10) { break }
+            }
+          }
+
+          Write-Host ("settings.yaml bytes=" + $bytes.Length)
+          if ($bad.Count -gt 0) {
+            Write-Host "Found control bytes (first up to 10):"
+            $bad | ForEach-Object { Write-Host $_ }
+            throw "settings.yaml contains control bytes (see positions above)"
+          } else {
+            Write-Host "OK: no control bytes detected"
+          }
 
       - name: Preflight - verify config exists
         shell: powershell
