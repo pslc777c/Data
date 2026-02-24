@@ -68,6 +68,16 @@ jobs:
           python --version
           where python
 
+      - name: Install ffmpeg (Chocolatey)
+        shell: powershell
+        run: |
+          if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
+            throw "Chocolatey (choco) no está instalado en este runner. Instálalo o usa el step con winget."
+          }
+          choco install ffmpeg -y --no-progress
+          refreshenv
+          ffmpeg -version
+
       - name: Check ffmpeg (optional for Step 1)
         shell: powershell
         continue-on-error: true
@@ -147,6 +157,39 @@ jobs:
           )
           foreach ($d in $dirs) { New-Item -ItemType Directory -Force -Path $d | Out-Null }
           New-Item -ItemType File -Force -Path "data/.keep" | Out-Null
+
+      - name: Build config/settings.yaml from template + secrets
+        shell: pwsh
+        run: |
+          # 1) Ensure config dir exists
+          New-Item -ItemType Directory -Force -Path "config" | Out-Null
+
+          # 2) Copy template to runtime settings
+          Copy-Item "config/settings.template.yaml" "config/settings.yaml" -Force
+
+          # 3) Replace placeholders with secrets (do NOT echo secrets)
+          $content = Get-Content "config/settings.yaml" -Raw
+          $content = $content.Replace("__SQL_USER__", "${{ secrets.SQL_USER }}")
+          $content = $content.Replace("__SQL_PASSWORD__", "${{ secrets.SQL_PASSWORD }}")
+          Set-Content -Path "config/settings.yaml" -Value $content -Encoding UTF8
+
+          # 4) Validate file exists (do not print it)
+          if (-not (Test-Path "config/settings.yaml")) {
+            Write-Error "settings.yaml was not created"
+            exit 1
+          }
+          Write-Host "OK: config/settings.yaml created"
+
+      - name: Preflight - verify config exists
+        shell: pwsh
+        run: |
+          Write-Host "PWD=$((Get-Location).Path)"
+          if (Test-Path "config/settings.yaml") {
+            Write-Host "OK: config/settings.yaml exists"
+          } else {
+            Write-Error "Missing config/settings.yaml"
+            exit 1
+          }
 
       - name: Run pipeline (best-effort)
         id: run_pipeline
