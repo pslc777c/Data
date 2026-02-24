@@ -149,7 +149,7 @@ jobs:
           New-Item -ItemType File -Force -Path "data/.keep" | Out-Null
 
       - name: Build config/settings.yaml from template + secrets
-        shell: pwsh
+        shell: powershell
         run: |
           # 1) Ensure config dir exists
           New-Item -ItemType Directory -Force -Path "config" | Out-Null
@@ -171,7 +171,7 @@ jobs:
           Write-Host "OK: config/settings.yaml created"
 
       - name: Preflight - verify config exists
-        shell: pwsh
+        shell: powershell
         run: |
           Write-Host "PWD=$((Get-Location).Path)"
           if (Test-Path "config/settings.yaml") {
