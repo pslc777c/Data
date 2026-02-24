@@ -1,0 +1,60 @@
+{
+  "version": "20260204_190035",
+  "created_at_utc": "2026-02-04T19:00:44.825750",
+  "fact_path": "data/silver/fact_hidratacion_real_post_grado_destino.parquet",
+  "target": "1+hidr_pct",
+  "clip_range_apply": [
+    0.8,
+    3.0
+  ],
+  "features": {
+    "num": [
+      "dow",
+      "month",
+      "weekofyear"
+    ],
+    "cat_str": [
+      "destino"
+    ],
+    "cat_num": [
+      "grado"
+    ]
+  },
+  "best_model": "gbr",
+  "metrics": {
+    "ridge": {
+      "mae_mean": 0.13988495121245625,
+      "mae_std": 0.010000479379002423,
+      "score": 0.12040228043743818,
+      "n_rows": 5764,
+      "n_folds": 4,
+      "uses_sample_weight": true
+    },
+    "gbr": {
+      "mae_mean": 0.13830404059482726,
+      "mae_std": 0.0041885841362895694,
+      "score": 0.11818672212604661,
+      "n_rows": 5764,
+      "n_folds": 4,
+      "uses_sample_weight": true
+    },
+    "hgb": {
+      "mae_mean": 0.14076954326510352,
+      "mae_std": 0.0021164432238648056,
+      "score": 0.1199715782589177,
+      "n_rows": 5764,
+      "n_folds": 4,
+      "uses_sample_weight": true
+    },
+    "rf": {
+      "mae_mean": 0.14199989006902808,
+      "mae_std": 0.00809110121295661,
+      "score": 0.12191357174061736,
+      "n_rows": 5764,
+      "n_folds": 4,
+      "uses_sample_weight": true
+    }
+  },
+  "uses_sample_weight": true,
+  "model_path": "models_registry/ml1/hidr_poscosecha/20260204_190035/model.joblib"
+}

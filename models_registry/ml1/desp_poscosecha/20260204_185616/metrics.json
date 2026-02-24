@@ -1,0 +1,52 @@
+{
+  "version": "20260204_185616",
+  "created_at_utc": "2026-02-04T18:56:22.691104",
+  "dim_path": "data/silver/dim_mermas_ajuste_fecha_post_destino.parquet",
+  "target": "factor_desp",
+  "clip_range_apply": [
+    0.05,
+    1.0
+  ],
+  "features": {
+    "num": [
+      "dow",
+      "month",
+      "weekofyear"
+    ],
+    "cat": [
+      "destino"
+    ]
+  },
+  "best_model": "rf",
+  "metrics": {
+    "ridge": {
+      "mae_mean": 0.05913956451231088,
+      "mae_std": 0.007712044358888503,
+      "score": 0.051425436489297524,
+      "n_rows": 606,
+      "n_folds": 4
+    },
+    "gbr": {
+      "mae_mean": 0.06755031352415261,
+      "mae_std": 0.010232295951548252,
+      "score": 0.05895261088826195,
+      "n_rows": 606,
+      "n_folds": 4
+    },
+    "hgb": {
+      "mae_mean": 0.054507858678164905,
+      "mae_std": 0.009905973679470546,
+      "score": 0.04781757592836075,
+      "n_rows": 606,
+      "n_folds": 4
+    },
+    "rf": {
+      "mae_mean": 0.05452969533692588,
+      "mae_std": 0.008237825285907599,
+      "score": 0.047585914829273136,
+      "n_rows": 606,
+      "n_folds": 4
+    }
+  },
+  "model_path": "models_registry/ml1/desp_poscosecha/20260204_185616/model.joblib"
+}
