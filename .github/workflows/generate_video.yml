@@ -205,28 +205,43 @@ jobs:
             throw "settings.yaml is NOT valid UTF-8"
           }
 
-      - name: Diagnose control chars in config/settings.yaml
+      - name: Validate settings.yaml (UTF-8 + no control chars)
         shell: powershell
         run: |
-          Write-Host "DIAG_STEP"
           $path = "config/settings.yaml"
           if (-not (Test-Path $path)) { throw "Missing $path" }
+
+          # 1) Strict UTF-8 decode
           $bytes = [System.IO.File]::ReadAllBytes($path)
+          $utf8Strict = New-Object System.Text.UTF8Encoding($false, $true)
+          try {
+            $text = $utf8Strict.GetString($bytes)
+            Write-Host "OK: settings.yaml is valid UTF-8"
+          } catch {
+            throw "settings.yaml is NOT valid UTF-8"
+          }
+
+          # 2) Check for Unicode control characters in decoded text:
+          # - Allow TAB (U+0009), LF (U+000A), CR (U+000D)
+          # - Disallow other C0 controls U+0000..U+001F
+          # - Disallow DEL U+007F and C1 controls U+0080..U+009F
           $bad = @()
-          for ($i=0; $i -lt $bytes.Length; $i++) {
-            $b = $bytes[$i]
-            if (($b -lt 32 -and $b -ne 9 -and $b -ne 10 -and $b -ne 13) -or ($b -ge 127 -and $b -le 159)) {
-              $bad += "pos=$i byte=0x{0:X2}" -f $b
+          for ($i=0; $i -lt $text.Length; $i++) {
+            $c = [int][char]$text[$i]
+            $isBadC0 = ($c -lt 32 -and $c -ne 9 -and $c -ne 10 -and $c -ne 13)
+            $isBadC1 = ($c -eq 127 -or ($c -ge 128 -and $c -le 159))
+            if ($isBadC0 -or $isBadC1) {
+              $bad += "idx=$i U+{0:X4}" -f $c
               if ($bad.Count -ge 10) { break }
             }
           }
-          Write-Host ("settings.yaml bytes=" + $bytes.Length)
+
           if ($bad.Count -gt 0) {
-            Write-Host "Found control bytes (first up to 10):"
+            Write-Host "Found control characters (first up to 10):"
             $bad | ForEach-Object { Write-Host $_ }
-            throw "settings.yaml contains control bytes (see positions above)"
+            throw "settings.yaml contains control characters"
           } else {
-            Write-Host "OK: no control bytes detected"
+            Write-Host "OK: no control characters detected"
           }
 
       - name: Preflight - verify config exists
