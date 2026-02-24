@@ -68,16 +68,6 @@ jobs:
           python --version
           where python
 
-      - name: Install ffmpeg (Chocolatey)
-        shell: powershell
-        run: |
-          if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
-            throw "Chocolatey (choco) no está instalado en este runner. Instálalo o usa el step con winget."
-          }
-          choco install ffmpeg -y --no-progress
-          refreshenv
-          ffmpeg -version
-
       - name: Check ffmpeg (optional for Step 1)
         shell: powershell
         continue-on-error: true
