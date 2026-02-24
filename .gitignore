@@ -85,3 +85,7 @@ src/**/artifacts/
 !/config/
 !/config/**
 !config/settings.template.yaml
+
+# Allow model registry (only what we need)
+!/models_registry/
+!/models_registry/**
