@@ -80,3 +80,8 @@ src/**/artifacts/
 # Allow CI helper scripts
 !/scripts/
 !/scripts/**
+
+# Allow config templates (but keep runtime secrets ignored)
+!/config/
+!/config/**
+!config/settings.template.yaml

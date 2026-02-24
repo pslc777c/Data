@@ -1,0 +1,168 @@
+project:
+  name: "macro_plan"
+  created_at: "2026-01-15T12:05:44"
+
+paths:
+  data_root: "data"
+  bronze: "data/bronze"
+  silver: "data/silver"
+  features: "data/features"
+  preds: "data/preds"
+  ops: "data/ops"
+  eval: "data/eval"
+  calib: "data/calib"
+  gold: "data/gold"
+  meta: "data/_meta"
+
+pipeline:
+  grid_horizon_days: 180
+  timezone: "America/Guayaquil"
+  horas_turno_poscosecha: 9.5
+
+sources:
+  # ===== Fenograma ACTIVO =====
+  fenograma_path: "\\\\10.0.2.15\\14_produccion\\Vigentes\\CAMPO\\Datos\\Gypsos\\Fenograma Million.xlsm"
+  fenograma_sheet: "Fenograma"
+  fenograma_skiprows: 7
+
+  # ===== Conteo de tallos y alturas ===== "\\10.0.2.15\14_produccion\Vigentes\CAMPO\Datos\Conteo de tallos\Conteo de Tallos y Alturas GYP 2419.xlsx"
+  conteo_tallos_alturas_gyp2419_path: "\\\\10.0.2.15\\14_produccion\\Vigentes\\CAMPO\\Datos\\Conteo de tallos\\Conteo de Tallos y Alturas GYP 2419.xlsx"   # o xlsx real
+  conteo_tallos_alturas_gyp2419_table: "Tabla6"
+
+  # ===== Índices históricos =====
+  indices_path: "\\\\10.0.2.15\\14_produccion\\Vigentes\\CAMPO\\Datos\\Productividades\\Indices Mensuales revision 2301.xlsx"
+  indices_sheet_xl: "XLENCE(m2xmes) ACT"
+  indices_sheet_clo: "CLOUDS(m2xmes)ACT"
+  fecha_min_hist: "2024-01-01"
+
+  # ===== SQL BALANZA (LOCAL, CON USUARIO) =====
+  sql_server: "10.0.2.27\\DataWareHousse,8699"
+  sql_db: "Balanzas"
+  sql_schema: "dbo"
+  sql_table: "BAL_View_Balanza_1"
+  sql_table_balanza: "BAL_View_Balanza_1"
+  odbc_driver: "SQL Server"
+
+  sql_user: "__SQL_USER__"
+  sql_password: "__SQL_PASSWORD__"
+
+milestones:
+  dh_days: 7
+  post_tail_days: 2
+
+pred_milestones:
+  # fallback si no hay suficiente historia para una combinación
+  fallback_group: "variedad"     # opciones: "variedad", "tipo_sp", "area", "global"
+  min_hist_rows: 10              # mínimo de ciclos cerrados para confiar en mediana del grupo
+
+pred_oferta:
+  use_stage: "HARVEST"     # HARVEST o HARVEST_POST (si quieres incluir POST)
+  harvest_default_days: 21 # fallback si no se puede inferird
+  min_harvest_days: 1
+
+
+dist_grado:
+  fecha_min: "2024-01-01"   # ajustable
+  variedades_validas: ["XLENCE", "CLOUD"] 
+  destino_excluir: []       # si quieres excluir destinos luego, pon lista
+  grados_validos: [15,20,25,30,35,40,45,50,55,60,65,70,75]  # ajustable
+  min_tallos_dia: 1
+
+mappings:
+  variedad_map:
+    XL: "XLENCE"
+    CLO: "CLOUD"
+
+post:
+  destino_default: "BLANCO"
+  dh_default: 7
+
+ventas:
+  ventas_2025_raw_parquet: "ventas_2025_raw.parquet"
+  ventas_2026_raw_parquet: "ventas_2026_raw.parquet"
+
+weather:
+  sql_db: WeatherStation
+  sql_schema: dbo
+  table_main: Weather_Station_Hour
+  table_a4: Weather_Station_Hour_A4
+  fecha_inicio: "2024-01-01 01:00:00"
+
+  th_lluvia: 0.3
+  th_seco: 0.3
+  th_humedo: 2.0
+  kardex_cap: 3.0
+
+cosecha:
+  uph_hour_file: "fact_cosecha_uph_hora_clima.parquet"
+
+uph_cosecha:
+  normalize_to_zcsp: true
+  zsp_equiv_apply_only_xlence: true
+  zsp_equiv_factor_by_code:
+    ZCSP: 1.0
+    ZCS: 0.83
+  # (opcional) filtros de áreas
+  station_by_area_trabajada_only: true
+  drop_cloud_in_a4: true
+  valid_areas_main: ["MH1", "MH2", "CULTIVOS VARIOS"]
+  valid_areas_a4: ["A-4", "A4", "SJP", "SAN JUAN"]
+
+  cal_factor_codigo_zcsp:
+    min_n_codigo: 200
+    min_horas_tramo: 0.10
+    clip_low: 0.60
+    clip_high: 1.60
+  
+bronze:
+  balanza_fecha_min: "2025-05-05"
+  ghu_fecha_min: "2024-01-01"
+  weather_fecha_min: "2024-01-01 01:00:00"
+  fenograma:
+    mode: "file"         # o "sql"
+    fecha_min: "2024-01-01"
+    path: "data/raw/fenograma_source.xlsx"   # si mode=file
+    # sql_db: "TU_DB"     # si mode=sql
+    # sql_schema: "dbo"
+    # sql_table: "TU_TABLA_O_VISTA"
+
+balanza:
+  balanza_file: "balanza_cosecha_raw.parquet"
+
+
+ops:
+  python: "python"         # o "py" en Windows
+  artifacts_dir: "data"    # raíz de outputs parquet
+  scripts_root: "."        # raíz del repo (donde viven pipelines/)
+  log_dir: "logs"
+
+
+ops:
+  python: "venv/Scripts/python.exe"
+  artifacts_dir: "data"
+  log_dir: "logs"
+
+
+silver:
+  patch_ciclo_maestro_from_pred_tallos:
+    enabled: true
+
+    # maestro a actualizar (SIEMPRE existe)
+    in_ciclo: "fact_ciclo_maestro.parquet"
+
+    # preds (puede no existir; si no existe -> skip)
+    in_pred_tallos: "../preds/pred_tallos_ciclo.parquet"
+
+    # output de control para que el pipeline “vea” el step
+    out_report: "fact_ciclo_maestro_patch_pred_tallos_report.parquet"
+
+    # columnas
+    ciclo_id_col: "ciclo_id"
+    fin_col: "fecha_fin_cosecha"
+    fin_value: 1
+
+    # columna que manda sobre tallos_proy
+    tallos_new_col: "tallos_proy_n"
+
+    # comportamiento
+    require_positive: true   # si true: exige tallos_proy_n > 0
