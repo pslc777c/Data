@@ -65,9 +65,13 @@ jobs:
             throw "Seed source not found: $src. This path must exist on the RUNNER machine and be accessible to the runner user."
           }
 
+          # IMPORTANT: reset destination to avoid mixing old cache contents
+          if (Test-Path $dst) {
+            Write-Host "Cleaning existing DST folder to avoid stale/mixed baseline..."
+            Remove-Item -Recurse -Force $dst
+          }
           New-Item -ItemType Directory -Force -Path $dst | Out-Null
 
-          $rc = 0
           robocopy $src $dst /E /COPY:DAT /R:2 /W:2
           $rc = $LASTEXITCODE
 
@@ -92,9 +96,12 @@ jobs:
             throw "Seed source not found: $src"
           }
 
+          if (Test-Path $dst) {
+            Write-Host "Cleaning existing DST silver folder to avoid stale/mixed baseline..."
+            Remove-Item -Recurse -Force $dst
+          }
           New-Item -ItemType Directory -Force -Path $dst | Out-Null
 
-          $rc = 0
           robocopy $src $dst /E /COPY:DAT /R:2 /W:2
           $rc = $LASTEXITCODE
 
@@ -118,6 +125,30 @@ jobs:
 
           Write-Host "Baseline OK. bronze files:" $b.Count
           if (Test-Path data/silver) { Write-Host "silver files:" (Get-ChildItem -Recurse data/silver).Count }
+
+      - name: Guardrail - require ventas raw in bronze
+        shell: powershell
+        run: |
+          $v2025 = "data\bronze\ventas_2025_raw.parquet"
+          $v2026 = "data\bronze\ventas_2026_raw.parquet"
+
+          Write-Host "Checking ventas raw presence..."
+          Write-Host "Expect: $v2025"
+          Write-Host "Expect: $v2026"
+
+          if (!(Test-Path $v2025)) {
+            Write-Host "Listing data\bronze for debugging:"
+            dir data\bronze
+            throw "Missing ventas_2025_raw.parquet in data/bronze after seeding"
+          }
+
+          if (!(Test-Path $v2026)) {
+            Write-Host "Listing data\bronze for debugging:"
+            dir data\bronze
+            throw "Missing ventas_2026_raw.parquet in data/bronze after seeding"
+          }
+
+          Write-Host "OK: ventas raw files are present"
 
       - name: Save baseline cache
         uses: actions/cache@v4
