@@ -51,7 +51,7 @@ class RunResult:
 # INTERNALS
 # =========================
 
-LAYER_ORDER = ["bronze", "silver", "features", "ml1", "ml2", "gold", "eval", "audit"]
+LAYER_ORDER = ["bronze", "silver", "preds", "features", "models", "gold", "ml2", "eval", "audit"]
 
 
 def _fmt_cmd(cmd: list[str]) -> str:
