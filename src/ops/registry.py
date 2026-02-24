@@ -209,6 +209,21 @@ def build_registry() -> list[Step]:
              ["gold/pred_poscosecha_seed_grado_dia_bloque_destino.parquet",
               "gold/pred_poscosecha_seed_dia_destino.parquet",
               "gold/pred_poscosecha_seed_dia_total.parquet"]),
+        Step(
+            "build_gold_features_mix_pred_dia_destino_base",
+            "gold",
+            "src/gold/build_gold_features_mix_pred_dia_destino_base.py",
+            ["gold/features_mix_pred_dia_destino.parquet"]),
+        Step(
+            "build_gold_features_b2a_mix_pred_dia_destino",
+            "gold",
+            "src/gold/build_gold_features_b2a_mix_pred_dia_destino.py",
+            ["gold/features_b2a_mix_pred_dia_destino.parquet"]),
+        Step(
+            "patch_gold_features_mix_pred_dia_destino",
+            "gold",
+            "src/gold/build_gold_features_mix_pred_dia_destino.py",
+            ["gold/features_mix_pred_dia_destino.parquet"]),
         Step("apply_dh_poscosecha_ml1", "gold", "src/models/ml1/apply_dh_poscosecha_ml1.py",
              ["gold/pred_poscosecha_ml1_dh_grado_dia_bloque_destino.parquet"]),
         Step("apply_hidr_poscosecha_ml1", "gold", "src/models/ml1/apply_hidr_poscosecha_ml1.py",
