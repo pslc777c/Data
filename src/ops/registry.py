@@ -366,83 +366,7 @@ def build_registry() -> list[Step]:
             ],
         ),
 
-        
-        # ---- Pos-cosecha ML2 (puro: ds v1 -> train -> apply) ----
-        Step("build_ds_dh_poscosecha_ml2_v1", "ml2", "src/gold/build_ds_dh_poscosecha_ml2_v1.py", []),
-        Step(
-            "train_dh_poscosecha_ml2",
-            "ml2",
-            "src/models/ml2/train_dh_poscosecha_ml2.py",
-            outputs_rel=[
-                "models/ml2/dh_poscosecha_ml2_*_meta.json",
-                "models/ml2/dh_poscosecha_ml2_*.pkl",
-            ],
-        ),
-        Step(
-            "apply_dh_poscosecha_ml2",
-            "ml2",
-            "src/models/ml2/apply_dh_poscosecha_ml2.py",
-            outputs_rel=[],
-            args=["--mode", "prod"],
-        ),
-
-        Step("build_ds_hidr_poscosecha_ml2_v1", "ml2", "src/gold/build_ds_hidr_poscosecha_ml2_v1.py", []),
-        Step(
-            "train_hidr_poscosecha_ml2",
-            "ml2",
-            "src/models/ml2/train_hidr_poscosecha_ml2.py",
-            outputs_rel=[
-                "models/ml2/hidr_poscosecha_ml2_*_meta.json",
-                "models/ml2/hidr_poscosecha_ml2_*.pkl",
-            ],
-        ),
-        Step(
-            "apply_hidr_poscosecha_ml2",
-            "ml2",
-            "src/models/ml2/apply_hidr_poscosecha_ml2.py",
-            outputs_rel=[],
-            args=["--mode", "prod"],
-        ),
-
-        Step("build_ds_desp_poscosecha_ml2_v1", "ml2", "src/gold/build_ds_desp_poscosecha_ml2_v1.py", []),
-        Step(
-            "train_desp_poscosecha_ml2",
-            "ml2",
-            "src/models/ml2/train_desp_poscosecha_ml2.py",
-            outputs_rel=[
-                "models/ml2/desp_poscosecha_ml2_*_meta.json",
-                "models/ml2/desp_poscosecha_ml2_*.pkl",
-            ],
-        ),
-        Step(
-            "apply_desp_poscosecha_ml2",
-            "ml2",
-            "src/models/ml2/apply_desp_poscosecha_ml2.py",
-            outputs_rel=[],
-            args=["--mode", "prod"],
-        ),
-
-        Step("build_ds_ajuste_poscosecha_ml2_v1", "ml2", "src/gold/build_ds_ajuste_poscosecha_ml2_v1.py", []),
-        Step(
-            "train_ajuste_poscosecha_ml2",
-            "ml2",
-            "src/models/ml2/train_ajuste_poscosecha_ml2.py",
-            outputs_rel=[
-                "models/ml2/ajuste_poscosecha_ml2_*_meta.json",
-                "models/ml2/ajuste_poscosecha_ml2_*.pkl",
-            ],
-        ),
-        Step(
-            "apply_ajuste_poscosecha_ml2",
-            "ml2",
-            "src/models/ml2/apply_ajuste_poscosecha_ml2.py",
-            outputs_rel=[],
-            args=["--mode", "prod"],
-        ),
-
-
-
-        # ---- POSCOSECHA ML2 (ML1-on-ML2 chain: original actual) ----
+        # ---- POSCOSECHA ML2 (ML1-on-ML2 baseline chain) ----
         Step(
             "apply_dh_poscosecha_ml1_on_ml2_seed",
             "ml2",
@@ -460,6 +384,79 @@ def build_registry() -> list[Step]:
             "ml2",
             "src/gold/apply_desp_ajuste_poscosecha_ml1_on_ml2_hidr.py",
             outputs_rel=["gold/pred_poscosecha_ml2_full_grado_dia_bloque_destino.parquet"],
+        ),
+
+        # ---- Pos-cosecha ML2 (residual ML2 over ML1-on-ML2 baseline) ----
+        Step("build_ds_dh_poscosecha_ml2_v1", "ml2", "src/gold/build_ds_dh_poscosecha_ml2_v1.py", []),
+        Step(
+            "train_dh_poscosecha_ml2",
+            "ml2",
+            "src/models/ml2/train_dh_poscosecha_ml2.py",
+            outputs_rel=[
+                "models/ml2/dh_poscosecha_ml2_*_meta.json",
+                "models/ml2/dh_poscosecha_ml2_*.pkl",
+            ],
+        ),
+        Step(
+            "apply_dh_poscosecha_ml2",
+            "ml2",
+            "src/models/ml2/apply_dh_poscosecha_ml2.py",
+            outputs_rel=[],
+            args=["--mode", "backtest"],
+        ),
+
+        Step("build_ds_hidr_poscosecha_ml2_v1", "ml2", "src/gold/build_ds_hidr_poscosecha_ml2_v1.py", []),
+        Step(
+            "train_hidr_poscosecha_ml2",
+            "ml2",
+            "src/models/ml2/train_hidr_poscosecha_ml2.py",
+            outputs_rel=[
+                "models/ml2/hidr_poscosecha_ml2_*_meta.json",
+                "models/ml2/hidr_poscosecha_ml2_*.pkl",
+            ],
+        ),
+        Step(
+            "apply_hidr_poscosecha_ml2",
+            "ml2",
+            "src/models/ml2/apply_hidr_poscosecha_ml2.py",
+            outputs_rel=[],
+            args=["--mode", "backtest"],
+        ),
+
+        Step("build_ds_desp_poscosecha_ml2_v1", "ml2", "src/gold/build_ds_desp_poscosecha_ml2_v1.py", []),
+        Step(
+            "train_desp_poscosecha_ml2",
+            "ml2",
+            "src/models/ml2/train_desp_poscosecha_ml2.py",
+            outputs_rel=[
+                "models/ml2/desp_poscosecha_ml2_*_meta.json",
+                "models/ml2/desp_poscosecha_ml2_*.pkl",
+            ],
+        ),
+        Step(
+            "apply_desp_poscosecha_ml2",
+            "ml2",
+            "src/models/ml2/apply_desp_poscosecha_ml2.py",
+            outputs_rel=[],
+            args=["--mode", "backtest"],
+        ),
+
+        Step("build_ds_ajuste_poscosecha_ml2_v1", "ml2", "src/gold/build_ds_ajuste_poscosecha_ml2_v1.py", []),
+        Step(
+            "train_ajuste_poscosecha_ml2",
+            "ml2",
+            "src/models/ml2/train_ajuste_poscosecha_ml2.py",
+            outputs_rel=[
+                "models/ml2/ajuste_poscosecha_ml2_*_meta.json",
+                "models/ml2/ajuste_poscosecha_ml2_*.pkl",
+            ],
+        ),
+        Step(
+            "apply_ajuste_poscosecha_ml2",
+            "ml2",
+            "src/models/ml2/apply_ajuste_poscosecha_ml2.py",
+            outputs_rel=[],
+            args=["--mode", "backtest"],
         ),
 
         Step(
