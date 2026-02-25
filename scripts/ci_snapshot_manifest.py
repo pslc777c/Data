@@ -6,13 +6,20 @@ root = os.environ.get("CI_ARTIFACTS_DIR", "ci_artifacts")
 
 manifest = []
 
+
+def md5_file(path: str) -> str:
+    h = hashlib.md5()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
 for base, _, files in os.walk(root):
     for f in files:
         p = os.path.join(base, f)
         try:
             st = os.stat(p)
-            with open(p, "rb") as fh:
-                h = hashlib.md5(fh.read()).hexdigest()
+            h = md5_file(p)
             manifest.append({
                 "path": os.path.relpath(p, root),
                 "bytes": st.st_size,

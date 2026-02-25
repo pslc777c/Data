@@ -32,7 +32,9 @@ on:
     branches: [ "main" ]
     paths:
       - ".github/workflows/generate_video.yml"
+      - "scripts/**"
       - "src/**"
+      - "config/settings.template.yaml"
       - "requirements*.txt"
 
 permissions:
@@ -68,12 +70,6 @@ jobs:
           python --version
           where python
 
-      - name: Check ffmpeg (optional for Step 1)
-        shell: powershell
-        continue-on-error: true
-        run: |
-          ffmpeg -version
-
       - name: Cache pip
         uses: actions/cache@v4
         with:
@@ -102,6 +98,37 @@ jobs:
         shell: powershell
         run: |
           python -c "import yaml, pandas, pyarrow; print('Imports OK')"
+
+      - name: Resolve ffmpeg binary (system or imageio fallback)
+        shell: powershell
+        run: |
+          $ffmpegCmd = Get-Command ffmpeg -ErrorAction SilentlyContinue
+          if ($ffmpegCmd) {
+            $ffmpegExe = $ffmpegCmd.Source
+            Write-Host "Using system ffmpeg: $ffmpegExe"
+          } else {
+            Write-Host "System ffmpeg not found. Installing imageio-ffmpeg fallback..."
+            python -m pip install --user imageio-ffmpeg
+            $ffmpegExe = python -c "import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())"
+          }
+
+          $ffmpegExe = $ffmpegExe.Trim()
+          if (-not $ffmpegExe -or !(Test-Path $ffmpegExe)) {
+            throw "Unable to resolve ffmpeg executable."
+          }
+
+          $ffmpegDir = Split-Path -Path $ffmpegExe -Parent
+          echo $ffmpegDir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          "FFMPEG_EXE=$ffmpegExe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "IMAGEIO_FFMPEG_EXE=$ffmpegExe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          Write-Host "Resolved ffmpeg executable: $ffmpegExe"
+
+      - name: Verify ffmpeg
+        shell: powershell
+        run: |
+          & $env:FFMPEG_EXE -version
+          where ffmpeg
 
       - name: Prepare data + artifacts folders
         shell: powershell
@@ -135,6 +162,21 @@ jobs:
           } else {
             Write-Host "data/silver not present (OK if pipeline can rebuild silver from bronze)."
           }
+
+      - name: (Optional) Guardrail - require ventas raw in bronze
+        if: ${{ inputs.use_sample_data == 'true' }}
+        shell: powershell
+        run: |
+          $v2025 = "data\bronze\ventas_2025_raw.parquet"
+          $v2026 = "data\bronze\ventas_2026_raw.parquet"
+
+          if (!(Test-Path $v2025) -or !(Test-Path $v2026)) {
+            Write-Host "Listing data\bronze for debugging:"
+            if (Test-Path "data\bronze") { dir data\bronze } else { Write-Host "data\bronze not found" }
+            throw "Missing ventas raw baseline files. Expected: $v2025 and $v2026. Rebuild baseline cache with matching baseline_key."
+          }
+
+          Write-Host "OK: ventas raw files are present in baseline cache"
 
       # (Optional) Ensure folder structure exists (does NOT overwrite baseline)
       - name: (Optional) Ensure folder structure
@@ -170,6 +212,8 @@ jobs:
           # Replace placeholders
           $content = $content.Replace("__SQL_USER__", "${{ secrets.SQL_USER }}")
           $content = $content.Replace("__SQL_PASSWORD__", "${{ secrets.SQL_PASSWORD }}")
+          $content = $content.Replace("__VENTAS_2025_PATH__", "${{ secrets.VENTAS_2025_PATH }}")
+          $content = $content.Replace("__VENTAS_2026_PATH__", "${{ secrets.VENTAS_2026_PATH }}")
 
           # Remove YAML-illegal control chars:
           # Keep TAB(09), LF(0A), CR(0D)
@@ -266,6 +310,22 @@ jobs:
           }
           Write-Host "OK: settings.yaml control-char check passed"
 
+      - name: (Optional) Validate ventas source paths for no-baseline mode
+        if: ${{ inputs.use_sample_data == 'false' }}
+        shell: powershell
+        run: |
+          $v25 = "${{ secrets.VENTAS_2025_PATH }}"
+          $v26 = "${{ secrets.VENTAS_2026_PATH }}"
+
+          if (-not $v25 -or -not $v26) {
+            throw "Missing secrets VENTAS_2025_PATH / VENTAS_2026_PATH. Required when use_sample_data=false."
+          }
+
+          if (!(Test-Path $v25)) { throw "VENTAS_2025_PATH not accessible from runner: $v25" }
+          if (!(Test-Path $v26)) { throw "VENTAS_2026_PATH not accessible from runner: $v26" }
+
+          Write-Host "OK: ventas source paths are reachable by runner"
+
       - name: Run pipeline (best-effort)
         id: run_pipeline
         continue-on-error: true
@@ -347,6 +407,11 @@ jobs:
           if (Test-Path "scripts") { dir scripts } else { Write-Host "scripts/ not found" }
           Write-Host "Listing repo root:"
           dir
+
+      - name: Collect code snapshot (.py + CI config)
+        shell: powershell
+        run: |
+          python scripts/ci_collect_code_snapshot.py
 
       - name: Create snapshot manifest
         shell: powershell
