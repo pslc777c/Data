@@ -309,7 +309,7 @@ def build_registry() -> list[Step]:
             "ml2",
             "src/models/ml2/apply_tallos_curve_ml2.py",
             outputs_rel=[],
-            args=["--mode", "prod"],
+            args=["--mode", "backtest"],
         ),
 
         # ---- Share grado ML2 ----
@@ -328,7 +328,7 @@ def build_registry() -> list[Step]:
             "ml2",
             "src/models/ml2/apply_share_grado_ml2.py",
             outputs_rel=[],
-            args=["--mode", "prod"],
+            args=["--mode", "backtest"],
         ),
 
         # ---- Peso tallo ML2 ----
@@ -347,7 +347,7 @@ def build_registry() -> list[Step]:
             "ml2",
             "src/models/ml2/apply_peso_tallo_ml2.py",
             outputs_rel=[],
-            args=["--mode", "prod"],
+            args=["--mode", "backtest"],
         ),
 
 
