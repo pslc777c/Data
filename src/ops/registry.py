@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from src.ops.runner import Step
 
@@ -6,7 +6,7 @@ from src.ops.runner import Step
 
 def build_registry() -> list[Step]:
     """
-    Registry lineal (orden de ejecución) que asegura que los .py se corran sin fallar
+    Registry lineal (orden de ejecuciÃ³n) que asegura que los .py se corran sin fallar
     por dependencias faltantes.
 
     Nota:
@@ -240,7 +240,7 @@ def build_registry() -> list[Step]:
               "gold/view_planificacion_campo_tallos_semana_area.parquet",
               "gold/view_planificacion_campo_tallos_semana_bloque.parquet"]),
 
-        # en tu “original actual” se corre este postproceso
+        # en tu â€œoriginal actualâ€ se corre este postproceso
         Step("postprocess_curva_share_smooth_ml1", "gold", "src/gold/postprocess_curva_share_smooth_ml1.py", []),
     ]
 
@@ -474,7 +474,44 @@ def build_registry() -> list[Step]:
             "build_pred_poscosecha_ml2_final_views",
             "ml2",
             "src/gold/build_pred_poscosecha_ml2_final_views.py",
-            outputs_rel=[],  # (si luego confirmas outputs, los ponemos aquí)
+            outputs_rel=[],  # (si luego confirmas outputs, los ponemos aquÃ­)
+        ),
+        # ---- ML2 NN (3 capas: ML1 -> ML2_puro -> ML2_operativo) ----
+        Step(
+            "build_ds_ml2_nn_v1",
+            "ml2",
+            "src/gold/build_ds_ml2_nn_v1.py",
+            outputs_rel=["gold/ml2_nn/ds_ml2_nn_v1.parquet"],
+        ),
+        Step(
+            "train_multitask_nn_ml2",
+            "ml2",
+            "src/models/ml2/train_multitask_nn_ml2.py",
+            outputs_rel=[
+                "models/ml2_nn/ml2_multitask_nn_*_meta.json",
+                "models/ml2_nn/ml2_multitask_nn_*.npz",
+            ],
+        ),
+        Step(
+            "apply_multitask_nn_ml2",
+            "ml2",
+            "src/models/ml2/apply_multitask_nn_ml2.py",
+            outputs_rel=[
+                "gold/ml2_nn/pred_ml2_multitask_nn_puro_*.parquet",
+                "gold/ml2_nn/pred_ml2_multitask_nn_operativo_*.parquet",
+                "gold/ml2_nn/pred_ml2_multitask_nn_*.parquet",
+            ],
+        ),
+        Step(
+            "build_views_ml1_ml2_real_compare",
+            "ml2",
+            "src/gold/build_views_ml1_ml2_real_compare.py",
+            outputs_rel=[
+                "gold/ml2_nn/view_pipeline_ml1_global.parquet",
+                "gold/ml2_nn/view_pipeline_ml2_puro_global.parquet",
+                "gold/ml2_nn/view_pipeline_ml2_operativo_global.parquet",
+                "gold/ml2_nn/view_pipeline_real_global.parquet",
+            ],
         ),
     ]
 
@@ -498,7 +535,7 @@ def build_registry() -> list[Step]:
     # AUDIT (incluye ML1 + ML2 audits: original actual)
     # =========================
     steps += [
-        # ML1 audits (los de tu “original actual”)
+        # ML1 audits (los de tu â€œoriginal actualâ€)
         Step("audit_universe_harvest_grid_ml1", "audit", "src/audit/audit_universe_harvest_grid_ml1.py",
              ["audit/audit_universe_harvest_grid_ml1_checks.parquet"]),
         Step("audit_dist_grado_ml1", "audit", "src/audit/audit_dist_grado_ml1.py",
