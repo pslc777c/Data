@@ -422,11 +422,12 @@ def _expand_missing_horizon_rows(v: pd.DataFrame) -> None:
             continue
         n_days = int(max(1, round(float(n_ser.max()))))
 
-        day_ser = pd.to_numeric(hg.get("day_in_harvest"), errors="coerce")
-        if day_ser.notna().any():
-            day_obs = day_ser.round().astype("Int64")
-        else:
-            day_obs = ((pd.to_datetime(hg["fecha_evento"], errors="coerce") - harvest_start).dt.days + 1).round().astype("Int64")
+        # Derive observed day index from calendar first to keep horizon/date consistency.
+        day_from_date = (
+            (pd.to_datetime(hg["fecha_evento"], errors="coerce").dt.normalize() - harvest_start).dt.days + 1
+        ).round().astype("Int64")
+        day_ser = pd.to_numeric(hg.get("day_in_harvest"), errors="coerce").round().astype("Int64")
+        day_obs = day_from_date.where(day_from_date.notna(), day_ser)
 
         m_day_valid = day_obs.notna() & (day_obs >= 1)
         if not bool(m_day_valid.any()):
