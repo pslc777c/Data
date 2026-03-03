@@ -822,7 +822,11 @@ def _build_view_ml2(base: pd.DataFrame, run_id: str, source: str) -> pd.DataFram
     day_ml2 = _num(base.get("day_in_harvest_ml2"), default=np.nan)
     day_ml1 = _num(base.get("day_in_harvest"), default=np.nan)
     day_ml2 = day_ml2.where(day_ml2 >= 1, np.nan)
-    v["day_in_harvest"] = day_ml2.fillna(day_ml1)
+    if source == "ML2_OPERATIVO":
+        v["day_in_harvest"] = day_ml2.fillna(day_ml1)
+    else:
+        # ML2 global/puro should follow only ML2-reprojected day index.
+        v["day_in_harvest"] = day_ml2
     v["rel_pos"] = _num(base.get("rel_pos_ml2"), default=np.nan).fillna(_num(base.get("rel_pos"), default=np.nan))
 
     v["factor_tallos_dia"] = _num(base.get("pred_ml2_factor_tallos_dia"), default=np.nan).fillna(_num(base.get("pred_factor_tallos_dia"), default=np.nan))
@@ -845,9 +849,17 @@ def _build_view_ml2(base: pd.DataFrame, run_id: str, source: str) -> pd.DataFram
     v["cajas_verde"] = _num(base.get("cajas_split_grado_dia_ml2"), default=np.nan).fillna(_num(base.get("cajas_split_grado_dia"), default=np.nan))
     v["cajas_post"] = _num(base.get("cajas_post_ml2"), default=np.nan).fillna(v["cajas_verde"] * prod)
     v["aprovechamiento"] = _safe_div(v["kg_post"], v["kg_verde"], default=np.nan)
+    v["n_harvest_days"] = np.rint(pd.to_numeric(v.get("n_harvest_days"), errors="coerce")).clip(lower=1.0)
 
     _expand_missing_horizon_rows(v)
     _realign_temporal_axis(v)
+    # Keep only rows inside valid ML2 harvest horizon.
+    m_hg_post = v["stage"].isin(["HARVEST_GRADE", "POST"])
+    day = pd.to_numeric(v.get("day_in_harvest"), errors="coerce")
+    nd = pd.to_numeric(v.get("n_harvest_days"), errors="coerce")
+    fev = pd.to_datetime(v.get("fecha_evento"), errors="coerce").dt.normalize()
+    m_keep = (~m_hg_post) | (fev.notna() & day.notna() & (day >= 1) & ((~nd.notna()) | (day <= nd)))
+    v = v.loc[m_keep].copy()
     _balance_ml2_to_tallos_proy(v, preserve_real=source == "ML2_OPERATIVO")
     _apply_stage_masks(v)
     _fill_cycle_totals(v)

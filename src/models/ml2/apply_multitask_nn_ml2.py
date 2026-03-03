@@ -779,6 +779,33 @@ def _build_dynamic_output(
     is_chain = is_hg | is_post
 
     fev_orig = pd.to_datetime(df_out.get("fecha_evento"), errors="coerce").dt.normalize()
+    real_start_map = pd.Series(dtype="datetime64[ns]")
+    if layer_name == "ML2_GLOBAL":
+        m_real_hg_start = (
+            (
+                pd.to_numeric(df_out.get("mask_target_factor_tallos_dia"), errors="coerce").fillna(0.0).gt(0.0)
+                | pd.to_numeric(df_out.get("mask_target_share_grado"), errors="coerce").fillna(0.0).gt(0.0)
+                | pd.to_numeric(df_out.get("mask_target_factor_peso_tallo"), errors="coerce").fillna(0.0).gt(0.0)
+            )
+            & is_hg
+            & fev_orig.notna()
+        )
+        if bool(m_real_hg_start.any()):
+            rs_tbl = (
+                pd.DataFrame(
+                    {
+                        "ciclo_id": df_out.loc[m_real_hg_start, "ciclo_id"].astype("string").to_numpy(),
+                        "fev": fev_orig.loc[m_real_hg_start].to_numpy(),
+                    }
+                )
+                .groupby("ciclo_id", dropna=False, as_index=False)
+                .agg(real_start=("fev", "min"))
+            )
+            real_start_map = pd.Series(
+                pd.to_datetime(rs_tbl["real_start"], errors="coerce").dt.normalize().to_numpy(),
+                index=rs_tbl["ciclo_id"],
+            )
+
     day_ml2 = _num_series(df_out, "day_in_harvest_ml2", default=np.nan)
     day_base = _num_series(df_out, "day_in_harvest", default=np.nan)
     day_ml2 = day_ml2.where(day_ml2 >= 1.0, day_base)
@@ -803,6 +830,40 @@ def _build_dynamic_output(
             )
             day_ord_row = pd.Series(row_idx.map(ord_map), index=df_out.index, dtype="float64")
             day_ml2 = day_ml2.where(day_ml2 >= 1.0, day_ord_row)
+
+    # ML2 global: if real harvest already started, reset day index from first real day.
+    if layer_name == "ML2_GLOBAL" and not real_start_map.empty:
+        cid_row = df_out["ciclo_id"].astype("string")
+        rs_row = cid_row.map(real_start_map)
+        ord2 = (
+            pd.DataFrame({"ciclo_id": cid_row, "fev": fev_orig, "real_start": rs_row})
+            .loc[is_chain & fev_orig.notna()]
+            .copy()
+        )
+        ord2 = ord2.loc[ord2["real_start"].isna() | (ord2["fev"] >= ord2["real_start"])]
+        ord2 = ord2.dropna(subset=["ciclo_id", "fev"]).drop_duplicates(subset=["ciclo_id", "fev"])
+        if not ord2.empty:
+            ord2 = ord2.sort_values(["ciclo_id", "fev"], kind="mergesort")
+            ord2["day_ord"] = ord2.groupby("ciclo_id", dropna=False).cumcount() + 1
+            ord2_idx = pd.MultiIndex.from_frame(ord2[["ciclo_id", "fev"]])
+            ord2_map = pd.Series(ord2["day_ord"].to_numpy(dtype=np.float64), index=ord2_idx)
+            row_idx2 = pd.MultiIndex.from_arrays([cid_row, fev_orig], names=["ciclo_id", "fev"])
+            day_ord2_row = pd.Series(row_idx2.map(ord2_map), index=df_out.index, dtype="float64")
+            m_has_rs = rs_row.notna()
+            day_ml2 = day_ml2.where(~m_has_rs, day_ord2_row)
+            m_before_rs = is_chain & m_has_rs & fev_orig.notna() & (fev_orig < rs_row)
+            if bool(m_before_rs.any()):
+                day_ml2.loc[m_before_rs] = np.nan
+
+    # Respect predicted ML2 horizon: day index cannot exceed n_harvest_days.
+    n_ref = _num_series(df_out, "pred_n_harvest_days_ml2", default=np.nan)
+    if not np.isfinite(n_ref).any():
+        n_ref = _num_series(df_out, "pred_ml2_n_harvest_days", default=np.nan)
+    n_ref_i = np.rint(n_ref)
+    m_over = n_ref_i.notna() & day_ml2.notna() & (day_ml2 > n_ref_i)
+    if bool(m_over.any()):
+        day_ml2.loc[m_over] = np.nan
+
     day_ml2 = day_ml2.where(day_ml2 >= 1.0, np.nan)
     df_out["day_in_harvest_ml2"] = day_ml2
 
@@ -857,6 +918,11 @@ def _build_dynamic_output(
                     hs = hs_pred
                 else:
                     hs = hs.combine_first(hs_pred)
+        if layer_name == "ML2_GLOBAL" and not real_start_map.empty:
+            if hs.empty:
+                hs = real_start_map
+            else:
+                hs = real_start_map.combine_first(hs)
 
     hs_row = df_out["ciclo_id"].astype("string").map(hs) if not hs.empty else pd.Series(pd.NaT, index=df_out.index)
     fev_ml2 = fev_orig.copy()
@@ -867,6 +933,16 @@ def _build_dynamic_output(
             pd.to_datetime(hs_row.loc[m_retime], errors="coerce").dt.normalize()
             + pd.to_timedelta(day_int - 1, unit="D")
         ).dt.normalize()
+    if layer_name in {"ML2_GLOBAL", "ML2_PURO"}:
+        m_outside = is_chain & hs_row.notna() & day_ml2.isna()
+        if bool(m_outside.any()):
+            fev_ml2.loc[m_outside] = pd.NaT
+    if layer_name == "ML2_GLOBAL" and not real_start_map.empty:
+        cid_row = df_out["ciclo_id"].astype("string")
+        rs_row = cid_row.map(real_start_map)
+        m_before_rs = is_chain & rs_row.notna() & fev_orig.notna() & (fev_orig < rs_row)
+        if bool(m_before_rs.any()):
+            fev_ml2.loc[m_before_rs] = pd.NaT
     df_out["fecha_evento_ml2"] = fev_ml2
 
     # Rebuild fecha_post_ml2 from reprojected fecha_evento_ml2 + dh when available.
