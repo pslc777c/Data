@@ -1049,6 +1049,22 @@ def _build_dynamic_output(
     df_out["cajas_post_ml2"] = cajas_green * prod_ml2
     df_out["aprovechamiento_ml2"] = np.where(kg_green > 0, df_out["kg_post_ml2"] / kg_green, np.nan)
 
+    # Keep canonical timeline columns aligned to ML2 reprojection axis so downstream
+    # queries on fecha_evento/day_in_harvest are consistent with the ML2 horizon.
+    if "fecha_evento_ml2" in df_out.columns:
+        df_out["fecha_evento"] = _to_date(df_out["fecha_evento_ml2"])
+    if "fecha_post_ml2" in df_out.columns:
+        if "fecha_post" in df_out.columns:
+            df_out["fecha_post"] = _to_date(df_out["fecha_post_ml2"])
+        else:
+            df_out["fecha_post"] = _to_date(df_out["fecha_post_ml2"])
+    if "day_in_harvest_ml2" in df_out.columns:
+        df_out["day_in_harvest"] = _num_series(df_out, "day_in_harvest_ml2", default=np.nan)
+    if "n_harvest_days_ml2" in df_out.columns:
+        df_out["n_harvest_days"] = _num_series(df_out, "n_harvest_days_ml2", default=np.nan)
+    if "rel_pos_ml2" in df_out.columns:
+        df_out["rel_pos"] = _num_series(df_out, "rel_pos_ml2", default=np.nan)
+
     df_out["ml2_multitask_nn_run_id"] = run_id
     df_out["ml2_layer"] = layer_name
     df_out["ml2_dynamic_iters"] = int(dyn["iterations"])
