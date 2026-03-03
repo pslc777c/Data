@@ -17,17 +17,21 @@ def _project_root() -> Path:
 
 ROOT = _project_root()
 DATA = ROOT / "data"
+SILVER = DATA / "silver"
 DEFAULT_INPUT = DATA / "gold" / "ml2_nn" / "ds_ml2_nn_v1.parquet"
 MODELS_DIR = DATA / "models" / "ml2_nn"
 OUT_DIR = DATA / "gold" / "ml2_nn"
 EVAL_DIR = DATA / "eval" / "ml2_nn"
+IN_FACT_PESO_REAL = SILVER / "fact_peso_tallo_real_grado_dia.parquet"
+IN_DIM_VARIEDAD = SILVER / "dim_variedad_canon.parquet"
 
 
 def _parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser("apply_multitask_nn_ml2")
     ap.add_argument("--run-id", default=None, help="Model run_id. If omitted, latest model is used.")
     ap.add_argument("--input", default=str(DEFAULT_INPUT))
-    ap.add_argument("--output", default=None, help="Legacy alias output (defaults to operativo path).")
+    ap.add_argument("--output", default=None, help="Legacy alias output (defaults to global path).")
+    ap.add_argument("--output-global", default=None, help="Path for ML2_global predictions.")
     ap.add_argument("--output-puro", default=None, help="Path for ML2_puro predictions.")
     ap.add_argument("--output-operativo", default=None, help="Path for ML2_Operativo predictions.")
     ap.add_argument(
@@ -774,35 +778,96 @@ def _build_dynamic_output(
     is_post = stage_u.eq("POST")
     is_chain = is_hg | is_post
 
+    fev_orig = pd.to_datetime(df_out.get("fecha_evento"), errors="coerce").dt.normalize()
     day_ml2 = _num_series(df_out, "day_in_harvest_ml2", default=np.nan)
     day_base = _num_series(df_out, "day_in_harvest", default=np.nan)
     day_ml2 = day_ml2.where(day_ml2 >= 1.0, day_base)
+    # Robust fallback: derive day index from observed calendar order when raw day_in_harvest is missing/broken.
+    if bool(is_chain.any()) and {"ciclo_id", "fecha_evento"} <= set(df_out.columns):
+        ord_tbl = (
+            df_out.loc[is_chain & fev_orig.notna(), ["ciclo_id", "fecha_evento"]]
+            .copy()
+            .rename(columns={"fecha_evento": "fev"})
+        )
+        if not ord_tbl.empty:
+            ord_tbl["ciclo_id"] = ord_tbl["ciclo_id"].astype("string")
+            ord_tbl["fev"] = pd.to_datetime(ord_tbl["fev"], errors="coerce").dt.normalize()
+            ord_tbl = ord_tbl.dropna(subset=["ciclo_id", "fev"]).drop_duplicates(subset=["ciclo_id", "fev"])
+            ord_tbl = ord_tbl.sort_values(["ciclo_id", "fev"], kind="mergesort")
+            ord_tbl["day_ord"] = ord_tbl.groupby("ciclo_id", dropna=False).cumcount() + 1
+            ord_idx = pd.MultiIndex.from_frame(ord_tbl[["ciclo_id", "fev"]])
+            ord_map = pd.Series(ord_tbl["day_ord"].to_numpy(dtype=np.float64), index=ord_idx)
+            row_idx = pd.MultiIndex.from_arrays(
+                [df_out["ciclo_id"].astype("string"), fev_orig],
+                names=["ciclo_id", "fev"],
+            )
+            day_ord_row = pd.Series(row_idx.map(ord_map), index=df_out.index, dtype="float64")
+            day_ml2 = day_ml2.where(day_ml2 >= 1.0, day_ord_row)
     day_ml2 = day_ml2.where(day_ml2 >= 1.0, np.nan)
     df_out["day_in_harvest_ml2"] = day_ml2
 
-    if {"ciclo_id", "pred_harvest_start_ml2"} <= set(df_out.columns):
-        hs_map = (
-            df_out.loc[stage_u.eq("VEG"), ["ciclo_id", "pred_harvest_start_ml2"]]
-            .dropna(subset=["ciclo_id"])
-            .drop_duplicates(subset=["ciclo_id"], keep="last")
-        )
-        hs_map["ciclo_id"] = hs_map["ciclo_id"].astype("string")
-        hs = pd.Series(
-            pd.to_datetime(hs_map["pred_harvest_start_ml2"], errors="coerce").dt.normalize().to_numpy(),
-            index=hs_map["ciclo_id"],
-        )
-        hs_row = df_out["ciclo_id"].astype("string").map(hs)
-        fev_ml2 = pd.to_datetime(df_out.get("fecha_evento"), errors="coerce").dt.normalize()
-        m_retime = is_chain & hs_row.notna() & day_ml2.notna()
-        if m_retime.any():
-            day_int = np.rint(day_ml2.loc[m_retime]).astype(int)
-            fev_ml2.loc[m_retime] = (
-                pd.to_datetime(hs_row.loc[m_retime], errors="coerce").dt.normalize()
-                + pd.to_timedelta(day_int - 1, unit="D")
-            ).dt.normalize()
-        df_out["fecha_evento_ml2"] = fev_ml2
+    hs = pd.Series(dtype="datetime64[ns]")
+    if bool(anchor_real):
+        if {"ciclo_id", "pred_harvest_start_ml2"} <= set(df_out.columns):
+            hs_map = (
+                df_out.loc[stage_u.eq("VEG"), ["ciclo_id", "pred_harvest_start_ml2"]]
+                .dropna(subset=["ciclo_id"])
+                .drop_duplicates(subset=["ciclo_id"], keep="last")
+            )
+            hs_map["ciclo_id"] = hs_map["ciclo_id"].astype("string")
+            hs = pd.Series(
+                pd.to_datetime(hs_map["pred_harvest_start_ml2"], errors="coerce").dt.normalize().to_numpy(),
+                index=hs_map["ciclo_id"],
+            )
     else:
-        df_out["fecha_evento_ml2"] = pd.to_datetime(df_out.get("fecha_evento"), errors="coerce").dt.normalize()
+        # Global/Puro timeline: keep ML1 calendar anchor (first HG date) and only adjust horizon forward.
+        hs_src = (
+            df_out.loc[is_hg & fev_orig.notna(), ["ciclo_id", "fecha_evento"]]
+            .copy()
+            .rename(columns={"fecha_evento": "fev"})
+        )
+        if hs_src.empty:
+            hs_src = (
+                df_out.loc[is_chain & fev_orig.notna(), ["ciclo_id", "fecha_evento"]]
+                .copy()
+                .rename(columns={"fecha_evento": "fev"})
+            )
+        if not hs_src.empty:
+            hs_src["ciclo_id"] = hs_src["ciclo_id"].astype("string")
+            hs_src["fev"] = pd.to_datetime(hs_src["fev"], errors="coerce").dt.normalize()
+            hs_src = (
+                hs_src.dropna(subset=["ciclo_id", "fev"])
+                .groupby("ciclo_id", dropna=False, as_index=False)
+                .agg(h_start=("fev", "min"))
+            )
+            hs = pd.Series(pd.to_datetime(hs_src["h_start"], errors="coerce").dt.normalize().to_numpy(), index=hs_src["ciclo_id"])
+        if {"ciclo_id", "pred_harvest_start_ml2"} <= set(df_out.columns):
+            hs_fallback = (
+                df_out.loc[stage_u.eq("VEG"), ["ciclo_id", "pred_harvest_start_ml2"]]
+                .dropna(subset=["ciclo_id"])
+                .drop_duplicates(subset=["ciclo_id"], keep="last")
+            )
+            if not hs_fallback.empty:
+                hs_fallback["ciclo_id"] = hs_fallback["ciclo_id"].astype("string")
+                hs_pred = pd.Series(
+                    pd.to_datetime(hs_fallback["pred_harvest_start_ml2"], errors="coerce").dt.normalize().to_numpy(),
+                    index=hs_fallback["ciclo_id"],
+                )
+                if hs.empty:
+                    hs = hs_pred
+                else:
+                    hs = hs.combine_first(hs_pred)
+
+    hs_row = df_out["ciclo_id"].astype("string").map(hs) if not hs.empty else pd.Series(pd.NaT, index=df_out.index)
+    fev_ml2 = fev_orig.copy()
+    m_retime = is_chain & hs_row.notna() & day_ml2.notna()
+    if m_retime.any():
+        day_int = np.rint(day_ml2.loc[m_retime]).astype(int)
+        fev_ml2.loc[m_retime] = (
+            pd.to_datetime(hs_row.loc[m_retime], errors="coerce").dt.normalize()
+            + pd.to_timedelta(day_int - 1, unit="D")
+        ).dt.normalize()
+    df_out["fecha_evento_ml2"] = fev_ml2
 
     # Rebuild fecha_post_ml2 from reprojected fecha_evento_ml2 + dh when available.
     dh_ml2 = _num_series(df_out, "pred_ml2_dh_dias", default=np.nan)
@@ -814,7 +879,6 @@ def _build_dynamic_output(
 
     # Keep observed-real dates fixed when using operativo anchoring.
     if anchor_real:
-        fev_orig = pd.to_datetime(df_out.get("fecha_evento"), errors="coerce").dt.normalize()
         fpost_orig = pd.to_datetime(df_out.get("fecha_post"), errors="coerce").dt.normalize()
         m_real_hg = (
             pd.to_numeric(df_out.get("mask_target_factor_tallos_dia"), errors="coerce").fillna(0.0).gt(0.0)
@@ -848,12 +912,45 @@ def _build_dynamic_output(
         )
         cyc_bal["tallos_ml2_total"] = pd.to_numeric(cyc_bal["tallos_ml2_total"], errors="coerce")
         cyc_bal["tallos_target"] = pd.to_numeric(cyc_bal["tallos_target"], errors="coerce")
+        cyc_bal["tallos_target_eff"] = cyc_bal["tallos_target"]
+
+        # ML2 global keeps model-only rows, but can use observed signal as lower bound
+        # to avoid collapsing totals when real progress is already above original target.
+        if layer_name == "ML2_GLOBAL":
+            m_obs = (
+                pd.to_numeric(df_out.get("mask_target_factor_tallos_dia"), errors="coerce").fillna(0.0).gt(0.0)
+                & pd.to_numeric(df_out.get("mask_target_share_grado"), errors="coerce").fillna(0.0).gt(0.0)
+            ) & is_hg
+            if bool(m_obs.any()):
+                obs_day = (
+                    pd.to_numeric(df_out.loc[m_obs, "target_factor_tallos_dia"], errors="coerce")
+                    * pd.to_numeric(df_out.loc[m_obs, "tallos_pred_baseline_dia"], errors="coerce")
+                )
+                obs_share = pd.to_numeric(df_out.loc[m_obs, "target_share_grado"], errors="coerce")
+                obs_grade = (obs_day * obs_share).clip(lower=0.0)
+                obs_tbl = (
+                    pd.DataFrame(
+                        {
+                            "ciclo_id": df_out.loc[m_obs, "ciclo_id"].astype("string").to_numpy(),
+                            "tallos_obs_real": obs_grade.to_numpy(dtype=np.float64),
+                        }
+                    )
+                    .groupby("ciclo_id", dropna=False, as_index=False)
+                    .agg(tallos_obs_real=("tallos_obs_real", "sum"))
+                )
+                cyc_bal = cyc_bal.merge(obs_tbl, on="ciclo_id", how="left")
+                cyc_bal["tallos_obs_real"] = pd.to_numeric(cyc_bal["tallos_obs_real"], errors="coerce").fillna(0.0)
+                cyc_bal["tallos_target_eff"] = np.maximum(
+                    pd.to_numeric(cyc_bal["tallos_target"], errors="coerce").fillna(0.0),
+                    cyc_bal["tallos_obs_real"],
+                )
+
         cyc_bal["scale_ml2_mass"] = np.where(
-            cyc_bal["tallos_target"].notna()
-            & (cyc_bal["tallos_target"] > 0.0)
+            cyc_bal["tallos_target_eff"].notna()
+            & (cyc_bal["tallos_target_eff"] > 0.0)
             & cyc_bal["tallos_ml2_total"].notna()
             & (cyc_bal["tallos_ml2_total"] > 0.0),
-            cyc_bal["tallos_target"] / cyc_bal["tallos_ml2_total"],
+            cyc_bal["tallos_target_eff"] / cyc_bal["tallos_ml2_total"],
             1.0,
         )
         scale_map = pd.Series(
@@ -882,6 +979,60 @@ def _build_dynamic_output(
     else:
         df_out["scale_ml2_mass"] = 1.0
 
+    # Keep day totals coherent with grade totals after all adjustments.
+    if bool(is_hg.any()) and {"tallos_pred_ml2_grado_dia", "tallos_pred_ml2_dia"} <= set(df_out.columns):
+        day_col = "fecha_evento_ml2" if "fecha_evento_ml2" in df_out.columns else ("fecha_evento" if "fecha_evento" in df_out.columns else None)
+        day_key = [c for c in ["ciclo_id", day_col, "bloque_base", "variedad_canon"] if c and c in df_out.columns]
+        if day_key:
+            hg_day = (
+                df_out.loc[is_hg, day_key + ["tallos_pred_ml2_grado_dia"]]
+                .groupby(day_key, dropna=False, as_index=False)
+                .agg(tallos_dia_new=("tallos_pred_ml2_grado_dia", "sum"))
+            )
+            # If tail is unnaturally flat, apply a light decay while preserving cycle mass.
+            date_col_local = day_key[1] if len(day_key) >= 2 else None
+            grp_shape_cols = [c for c in day_key if c != date_col_local]
+            if date_col_local and grp_shape_cols:
+                adj_parts: list[pd.DataFrame] = []
+                for _, g in hg_day.groupby(grp_shape_cols, dropna=False, sort=False):
+                    gg = g.sort_values(date_col_local, kind="mergesort").copy()
+                    vals = pd.to_numeric(gg["tallos_dia_new"], errors="coerce").fillna(0.0).to_numpy(dtype=np.float64)
+                    n = len(vals)
+                    if n >= 5:
+                        tail_n = int(min(6, n))
+                        tail = vals[-tail_n:]
+                        t_mean = float(np.nanmean(tail))
+                        t_std = float(np.nanstd(tail))
+                        if t_mean > 1e-9 and (t_std / t_mean) < 0.01:
+                            adj = vals.copy()
+                            decay = np.linspace(1.00, 0.90, tail_n, dtype=np.float64)
+                            adj[-tail_n:] = tail * decay
+                            s0 = float(np.nansum(vals))
+                            s1 = float(np.nansum(adj))
+                            if s0 > 0.0 and s1 > 0.0:
+                                adj = adj * (s0 / s1)
+                            vals = np.clip(adj, 0.0, np.inf)
+                    gg["tallos_dia_new"] = vals
+                    adj_parts.append(gg)
+                if adj_parts:
+                    hg_day = pd.concat(adj_parts, ignore_index=True)
+
+            hg_day_idx = pd.MultiIndex.from_frame(hg_day[day_key])
+            hg_day_map = pd.Series(
+                pd.to_numeric(hg_day["tallos_dia_new"], errors="coerce").to_numpy(dtype=np.float64),
+                index=hg_day_idx,
+            )
+            hg_rows = pd.MultiIndex.from_frame(df_out.loc[is_hg, day_key])
+            df_out.loc[is_hg, "tallos_pred_ml2_dia"] = hg_rows.map(hg_day_map).to_numpy(dtype=np.float64)
+            if bool(is_post.any()):
+                post_rows = pd.MultiIndex.from_frame(df_out.loc[is_post, day_key])
+                post_map = post_rows.map(hg_day_map)
+                post_old = pd.to_numeric(df_out.loc[is_post, "tallos_pred_ml2_dia"], errors="coerce")
+                df_out.loc[is_post, "tallos_pred_ml2_dia"] = pd.Series(post_map, index=df_out.loc[is_post].index).where(
+                    pd.Series(post_map, index=df_out.loc[is_post].index).notna(),
+                    post_old,
+                )
+
     kg_green = _num_series(df_out, "kg_verde_ml2", default=np.nan)
     if not np.isfinite(kg_green).any():
         kg_green = _num_series(df_out, "kg_verde_ref", default=0.0)
@@ -904,7 +1055,233 @@ def _build_dynamic_output(
     df_out["ml2_dynamic_converged"] = bool(dyn["converged"])
     df_out["ml2_dynamic_max_rel_change"] = float(dyn["max_rel_change"]) if np.isfinite(dyn["max_rel_change"]) else np.nan
     df_out["ml2_dynamic_anchor_real"] = bool(anchor_real)
+    if "ml2_anchor_real" not in df_out.columns:
+        df_out["ml2_anchor_real"] = False
     return df_out
+
+
+def _dedup_harvest_grade_rows(df_out: pd.DataFrame, prefer_real: bool) -> pd.DataFrame:
+    if df_out.empty or "stage" not in df_out.columns:
+        return df_out
+    st = _stage_series(df_out)
+    is_hg = st.eq("HARVEST_GRADE")
+    if not bool(is_hg.any()):
+        return df_out
+
+    date_col = "fecha_evento_ml2" if "fecha_evento_ml2" in df_out.columns else ("fecha_evento" if "fecha_evento" in df_out.columns else None)
+    key = [c for c in ["ciclo_id", date_col, "bloque_base", "variedad_canon", "grado"] if c and c in df_out.columns]
+    if not key:
+        return df_out
+
+    hg = df_out.loc[is_hg].copy()
+    score = pd.Series(0.0, index=hg.index, dtype="float64")
+    if prefer_real:
+        for c in [
+            "mask_target_factor_tallos_dia",
+            "mask_target_share_grado",
+            "mask_target_factor_peso_tallo",
+        ]:
+            if c in hg.columns:
+                score = score + pd.to_numeric(hg[c], errors="coerce").fillna(0.0)
+    hg["__score"] = score
+
+    sort_cols = ["__score"]
+    asc = [False]
+    if "row_id" in hg.columns:
+        sort_cols.append("row_id")
+        asc.append(True)
+    hg = hg.sort_values(sort_cols, ascending=asc, kind="mergesort")
+    hg = hg.drop_duplicates(subset=key, keep="first").drop(columns=["__score"])
+
+    out = pd.concat([df_out.loc[~is_hg], hg], ignore_index=True)
+    order_cols = [c for c in ["ciclo_id", date_col, "stage", "bloque_base", "variedad_canon", "grado", "destino"] if c in out.columns]
+    if order_cols:
+        out = out.sort_values(order_cols, kind="mergesort").reset_index(drop=True)
+    return out
+
+
+def _overlay_operational_real_harvest(df_out: pd.DataFrame) -> pd.DataFrame:
+    if df_out.empty or not IN_FACT_PESO_REAL.exists():
+        return df_out
+
+    out = df_out.copy()
+    st = _stage_series(out)
+    is_hg = st.eq("HARVEST_GRADE")
+    if not bool(is_hg.any()):
+        return out
+
+    date_col = "fecha_evento_ml2" if "fecha_evento_ml2" in out.columns else ("fecha_evento" if "fecha_evento" in out.columns else None)
+    key_cols = [c for c in [date_col, "bloque_base", "variedad_canon", "grado"] if c and c in out.columns]
+    day_cols = [c for c in [date_col, "bloque_base", "variedad_canon"] if c and c in out.columns]
+    if len(key_cols) < 4:
+        return out
+
+    hg = out.loc[is_hg].copy()
+    hg["__idx"] = hg.index
+    hg[date_col] = _to_date(hg[date_col])
+    hg["bloque_base_int"] = pd.to_numeric(hg["bloque_base"], errors="coerce").astype("Int64")
+    hg["grado_int"] = pd.to_numeric(hg["grado"], errors="coerce").astype("Int64")
+    hg["variedad_canon"] = _canon_str(hg["variedad_canon"])
+
+    fr = read_parquet(IN_FACT_PESO_REAL).copy()
+    fr.columns = [str(c).strip() for c in fr.columns]
+    fr["fecha_evento"] = _to_date(fr["fecha"])
+    if "bloque_base" not in fr.columns:
+        if "bloque_padre" in fr.columns:
+            fr["bloque_base"] = fr["bloque_padre"]
+        elif "bloque" in fr.columns:
+            fr["bloque_base"] = fr["bloque"]
+        else:
+            fr["bloque_base"] = pd.NA
+    fr["bloque_base_int"] = pd.to_numeric(fr["bloque_base"], errors="coerce").astype("Int64")
+    fr["grado_int"] = pd.to_numeric(fr["grado"], errors="coerce").astype("Int64")
+
+    if "variedad_canon" not in fr.columns:
+        if "variedad" in fr.columns and IN_DIM_VARIEDAD.exists():
+            dim = read_parquet(IN_DIM_VARIEDAD).copy()
+            dim.columns = [str(c).strip() for c in dim.columns]
+            dim["variedad_raw_norm"] = _canon_str(dim["variedad_raw"])
+            dim["variedad_canon"] = _canon_str(dim["variedad_canon"])
+            fr["variedad_raw_norm"] = _canon_str(fr["variedad"])
+            fr = fr.merge(dim[["variedad_raw_norm", "variedad_canon"]].drop_duplicates(), on="variedad_raw_norm", how="left")
+            fr["variedad_canon"] = fr["variedad_canon"].fillna(fr["variedad_raw_norm"])
+        else:
+            fr["variedad_canon"] = "UNKNOWN"
+    fr["variedad_canon"] = _canon_str(fr["variedad_canon"])
+    fr["tallos_real"] = _num_series(fr, "tallos_real", default=0.0)
+    fr["peso_real_g"] = _num_series(fr, "peso_real_g", default=np.nan)
+    fr["peso_tallo_real_g"] = _num_series(fr, "peso_tallo_real_g", default=np.nan)
+    fr["kg_verde_real"] = fr["peso_real_g"] / 1000.0
+    fr["kg_verde_real"] = fr["kg_verde_real"].fillna(fr["tallos_real"] * fr["peso_tallo_real_g"] / 1000.0)
+    fr["peso_tallo_real_g"] = fr["peso_tallo_real_g"].fillna(_safe_div(fr["peso_real_g"], fr["tallos_real"], default=np.nan))
+
+    frg = (
+        fr[["fecha_evento", "bloque_base_int", "variedad_canon", "grado_int", "tallos_real", "kg_verde_real", "peso_tallo_real_g"]]
+        .dropna(subset=["fecha_evento", "bloque_base_int", "variedad_canon", "grado_int"])
+        .groupby(["fecha_evento", "bloque_base_int", "variedad_canon", "grado_int"], dropna=False, as_index=False)
+        .agg(
+            tallos_grado_real=("tallos_real", "sum"),
+            kg_verde_grado_real=("kg_verde_real", "sum"),
+            peso_tallo_real_g=("peso_tallo_real_g", "mean"),
+        )
+    )
+    if frg.empty:
+        return out
+
+    day = (
+        frg.groupby(["fecha_evento", "bloque_base_int", "variedad_canon"], dropna=False, as_index=False)
+        .agg(tallos_dia_real=("tallos_grado_real", "sum"))
+    )
+    frg = frg.merge(day, on=["fecha_evento", "bloque_base_int", "variedad_canon"], how="left")
+    frg["share_grado_real"] = _safe_div(frg["tallos_grado_real"], frg["tallos_dia_real"], default=np.nan)
+
+    hg = hg.merge(
+        frg,
+        left_on=[date_col, "bloque_base_int", "variedad_canon", "grado_int"],
+        right_on=["fecha_evento", "bloque_base_int", "variedad_canon", "grado_int"],
+        how="left",
+    )
+    hg = hg.merge(
+        day.rename(columns={"tallos_dia_real": "tallos_dia_real_day"}),
+        left_on=[date_col, "bloque_base_int", "variedad_canon"],
+        right_on=["fecha_evento", "bloque_base_int", "variedad_canon"],
+        how="left",
+    )
+
+    # Fill explicit zero-harvest days up to the last observed real date:
+    # if a day exists in the model grid but there is no real entry before/at
+    # the latest real date for that block-variety, treat it as real zero.
+    obs_last = (
+        day.groupby(["bloque_base_int", "variedad_canon"], dropna=False, as_index=False)
+        .agg(last_real_fecha=("fecha_evento", "max"))
+    )
+    hg = hg.merge(obs_last, on=["bloque_base_int", "variedad_canon"], how="left")
+
+    day_real = pd.to_numeric(hg.get("tallos_dia_real_day"), errors="coerce")
+    fev = _to_date(hg[date_col])
+    m_zero_obs = day_real.isna() & fev.notna() & hg["last_real_fecha"].notna() & (fev <= hg["last_real_fecha"])
+    day_real = day_real.where(~m_zero_obs, 0.0)
+    hg["tallos_dia_real_day"] = day_real
+
+    m_day = day_real.notna()
+    if not bool(m_day.any()):
+        return out
+
+    grade_real = pd.to_numeric(hg.get("tallos_grado_real"), errors="coerce").fillna(0.0)
+    share_real = _safe_div(grade_real, day_real, default=0.0)
+    kg_grade_real = pd.to_numeric(hg.get("kg_verde_grado_real"), errors="coerce").fillna(0.0)
+    m_grade = m_day & grade_real.gt(0.0)
+
+    idx = pd.to_numeric(hg.loc[m_day, "__idx"], errors="coerce").astype("Int64")
+    m_idx = idx.notna()
+    idx = idx.loc[m_idx].astype(int)
+    hgm = hg.loc[m_day].loc[m_idx]
+
+    out.loc[idx, "tallos_pred_ml2_grado_dia"] = pd.to_numeric(hgm["tallos_grado_real"], errors="coerce").fillna(0.0).to_numpy(dtype=np.float32)
+    out.loc[idx, "tallos_pred_ml2_dia"] = pd.to_numeric(hgm["tallos_dia_real_day"], errors="coerce").to_numpy(dtype=np.float32)
+    out.loc[idx, "share_grado_ml2_norm"] = _safe_div(
+        pd.to_numeric(hgm["tallos_grado_real"], errors="coerce").fillna(0.0),
+        pd.to_numeric(hgm["tallos_dia_real_day"], errors="coerce"),
+        default=0.0,
+    ).to_numpy(dtype=np.float32)
+    if "pred_ml2_share_grado" in out.columns:
+        out.loc[idx, "pred_ml2_share_grado"] = _safe_div(
+            pd.to_numeric(hgm["tallos_grado_real"], errors="coerce").fillna(0.0),
+            pd.to_numeric(hgm["tallos_dia_real_day"], errors="coerce"),
+            default=0.0,
+        ).to_numpy(dtype=np.float32)
+    if "pred_ml2_factor_tallos_dia" in out.columns:
+        fac = _safe_div(
+            pd.to_numeric(hgm["tallos_dia_real_day"], errors="coerce"),
+            pd.to_numeric(hgm["tallos_pred_baseline_dia"], errors="coerce"),
+            default=np.nan,
+        )
+        out.loc[idx, "pred_ml2_factor_tallos_dia"] = fac.to_numpy(dtype=np.float32)
+    if "pred_ml2_factor_peso_tallo" in out.columns:
+        idx_g = pd.to_numeric(hg.loc[m_grade, "__idx"], errors="coerce").astype("Int64")
+        mg_idx = idx_g.notna()
+        idx_g = idx_g.loc[mg_idx].astype(int)
+        hgg = hg.loc[m_grade].loc[mg_idx]
+        facp = _safe_div(
+            pd.to_numeric(hgg["peso_tallo_real_g"], errors="coerce"),
+            pd.to_numeric(hgg["peso_tallo_baseline_g"], errors="coerce"),
+            default=np.nan,
+        )
+        out.loc[idx_g, "pred_ml2_factor_peso_tallo"] = facp.to_numpy(dtype=np.float32)
+    if "kg_verde_ml2" in out.columns:
+        out.loc[idx, "kg_verde_ml2"] = pd.to_numeric(hgm["kg_verde_grado_real"], errors="coerce").fillna(0.0).to_numpy(dtype=np.float32)
+    if "gramos_verde_ml2" in out.columns:
+        out.loc[idx, "gramos_verde_ml2"] = pd.to_numeric(hgm["kg_verde_grado_real"], errors="coerce").fillna(0.0).to_numpy(dtype=np.float32) * 1000.0
+    if "ml2_anchor_real" not in out.columns:
+        out["ml2_anchor_real"] = False
+    out.loc[idx, "ml2_anchor_real"] = True
+
+    # Propagate corrected HG day/grade tallos to POST rows of same key.
+    if bool(st.eq("POST").any()):
+        post = out.loc[st.eq("POST")].copy()
+        post["__idx"] = post.index
+        post[date_col] = _to_date(post[date_col]) if date_col in post.columns else pd.NaT
+        post["bloque_base_int"] = pd.to_numeric(post.get("bloque_base"), errors="coerce").astype("Int64")
+        post["grado_int"] = pd.to_numeric(post.get("grado"), errors="coerce").astype("Int64")
+        post["variedad_canon"] = _canon_str(post.get("variedad_canon", "UNKNOWN"))
+
+        hg_map = hg.loc[m_day, [date_col, "bloque_base_int", "variedad_canon", "grado_int", "tallos_grado_real", "tallos_dia_real_day"]].copy()
+        p2 = post.merge(
+            hg_map,
+            left_on=[date_col, "bloque_base_int", "variedad_canon", "grado_int"],
+            right_on=[date_col, "bloque_base_int", "variedad_canon", "grado_int"],
+            how="left",
+        )
+        mp = pd.to_numeric(p2["tallos_dia_real_day"], errors="coerce").notna()
+        if bool(mp.any()):
+            pidx = pd.to_numeric(p2.loc[mp, "__idx"], errors="coerce").astype("Int64")
+            mp_idx = pidx.notna()
+            pidx = pidx.loc[mp_idx].astype(int)
+            p2m = p2.loc[mp].loc[mp_idx]
+            out.loc[pidx, "tallos_pred_ml2_grado_dia"] = pd.to_numeric(p2m["tallos_grado_real"], errors="coerce").fillna(0.0).to_numpy(dtype=np.float32)
+            out.loc[pidx, "tallos_pred_ml2_dia"] = pd.to_numeric(p2m["tallos_dia_real_day"], errors="coerce").to_numpy(dtype=np.float32)
+
+    return out
 
 
 def _compute_metrics_bundle(
@@ -1045,39 +1422,48 @@ def _expand_ml2_horizon_rows(df_out: pd.DataFrame) -> tuple[pd.DataFrame, int]:
         if hg.empty:
             continue
 
-        day = pd.to_numeric(hg.get("day_in_harvest_ml2"), errors="coerce")
-        if day.notna().any():
-            day = day.round().astype("Int64")
-        else:
-            base_fev = pd.to_datetime(hg.get("fecha_evento_ml2", hg.get("fecha_evento")), errors="coerce").dt.normalize()
-            day = ((base_fev - h_start).dt.days + 1).round().astype("Int64")
-        day = day[(day.notna()) & (day >= 1)]
-        if day.empty:
+        fe_hg = pd.to_datetime(hg.get("fecha_evento_ml2", hg.get("fecha_evento")), errors="coerce").dt.normalize()
+        day_hg = pd.to_numeric(hg.get("day_in_harvest_ml2", hg.get("day_in_harvest")), errors="coerce").round()
+        if fe_hg.notna().any():
+            m_day1 = day_hg.eq(1.0) & fe_hg.notna()
+            if bool(m_day1.any()):
+                h_start = pd.to_datetime(fe_hg.loc[m_day1], errors="coerce").min().normalize()
+            else:
+                h_start = pd.to_datetime(fe_hg, errors="coerce").min().normalize()
+        existing_dates = set(fe_hg.dropna().tolist())
+        if not existing_dates:
             continue
 
-        existing = set(day.astype(int).tolist())
-        missing_days = [d for d in range(1, n_days + 1) if d not in existing]
-        if not missing_days:
+        missing_dates = [
+            (h_start + pd.Timedelta(days=d - 1)).normalize()
+            for d in range(1, n_days + 1)
+            if (h_start + pd.Timedelta(days=d - 1)).normalize() not in existing_dates
+        ]
+        if not missing_dates:
             continue
 
-        d_last = int(day.max())
-        hg["__day"] = day.values
-        hg_tpl = hg.loc[hg["__day"].eq(d_last)].drop(columns=["__day"])
+        last_date = max(existing_dates)
+        hg_tpl = hg.loc[fe_hg.eq(last_date)].copy()
         if hg_tpl.empty:
-            continue
+            hg_tpl = hg.tail(1).copy()
+            if hg_tpl.empty:
+                continue
 
         post = cyc.loc[cyc["stage"].eq("POST")].copy()
         post_tpl = pd.DataFrame()
         if not post.empty:
-            dpost = pd.to_numeric(post.get("day_in_harvest_ml2"), errors="coerce").round().astype("Int64")
-            post["__day"] = dpost
-            post_tpl = post.loc[post["__day"].eq(d_last)].drop(columns=["__day"])
+            fe_post = pd.to_datetime(post.get("fecha_evento_ml2", post.get("fecha_evento")), errors="coerce").dt.normalize()
+            post_tpl = post.loc[fe_post.eq(last_date)].copy()
             if post_tpl.empty:
                 post_tpl = post.tail(min(len(post), len(hg_tpl))).copy()
 
-        for d in missing_days:
-            fev = (h_start + pd.Timedelta(days=d - 1)).normalize()
+        for fev in missing_dates:
+            d = int((pd.Timestamp(fev) - h_start).days) + 1
             rel = float(d) / float(max(n_days, 1))
+            tail_step = int((pd.Timestamp(fev) - pd.Timestamp(last_date)).days)
+            tail_decay = 1.0
+            if tail_step > 0:
+                tail_decay = float(max(0.82, 1.0 - 0.03 * tail_step))
 
             add_hg = hg_tpl.copy()
             add_hg["fecha_evento_ml2"] = fev
@@ -1095,6 +1481,18 @@ def _expand_ml2_horizon_rows(df_out: pd.DataFrame) -> tuple[pd.DataFrame, int]:
                 add_hg["rel_pos_ml2"] = rel
             if "rel_pos" in add_hg.columns:
                 add_hg["rel_pos"] = rel
+            if tail_step > 0:
+                for c in [
+                    "tallos_pred_ml2_dia",
+                    "tallos_pred_ml2_grado_dia",
+                    "kg_verde_ml2",
+                    "gramos_verde_ml2",
+                    "cajas_split_grado_dia_ml2",
+                    "cajas_ml1_grado_dia_ml2",
+                    "cajas_post_seed_ml2",
+                ]:
+                    if c in add_hg.columns:
+                        add_hg[c] = pd.to_numeric(add_hg[c], errors="coerce") * tail_decay
             for c in target_cols:
                 add_hg[c] = np.nan
             for c in mask_cols:
@@ -1122,6 +1520,19 @@ def _expand_ml2_horizon_rows(df_out: pd.DataFrame) -> tuple[pd.DataFrame, int]:
                     add_p["rel_pos_ml2"] = rel
                 if "rel_pos" in add_p.columns:
                     add_p["rel_pos"] = rel
+                if tail_step > 0:
+                    for c in [
+                        "tallos_pred_ml2_dia",
+                        "tallos_pred_ml2_grado_dia",
+                        "tallos_post_ml2_proy",
+                        "kg_verde_ml2",
+                        "gramos_verde_ml2",
+                        "cajas_split_grado_dia_ml2",
+                        "cajas_ml1_grado_dia_ml2",
+                        "cajas_post_seed_ml2",
+                    ]:
+                        if c in add_p.columns:
+                            add_p[c] = pd.to_numeric(add_p[c], errors="coerce") * tail_decay
                 if "pred_ml2_dh_dias" in add_p.columns:
                     dh = np.rint(pd.to_numeric(add_p["pred_ml2_dh_dias"], errors="coerce")).astype("Int64")
                     add_p["fecha_post_ml2"] = _to_date(pd.to_datetime(fev) + pd.to_timedelta(dh.fillna(0).astype(int), unit="D"))
@@ -1179,7 +1590,23 @@ def main() -> None:
         anchor_real=False,
     )
     df_out_pure, n_added_pure = _expand_ml2_horizon_rows(df_out_pure)
+    df_out_pure = _dedup_harvest_grade_rows(df_out_pure, prefer_real=False)
     bundle_pure = _compute_metrics_bundle(df=df, df_out=df_out_pure, specs=specs, dyn=dyn_pure)
+
+    # ML2 global: no reemplaza real fila-a-fila, pero sí reproyecta la cadena completa.
+    # Usa la misma inferencia base y una salida temporal/mass-balance específica.
+    dyn_global = dyn_pure
+    df_out_global = _build_dynamic_output(
+        df=df,
+        dyn=dyn_global,
+        specs=specs,
+        run_id=run_id,
+        layer_name="ML2_GLOBAL",
+        anchor_real=False,
+    )
+    df_out_global, n_added_global = _expand_ml2_horizon_rows(df_out_global)
+    df_out_global = _dedup_harvest_grade_rows(df_out_global, prefer_real=False)
+    bundle_global = _compute_metrics_bundle(df=df, df_out=df_out_global, specs=specs, dyn=dyn_global)
 
     # ML2 operativo: ancla a reales observados y reproyecta.
     dyn_oper = _run_dynamic_inference(
@@ -1201,24 +1628,39 @@ def main() -> None:
         anchor_real=bool(args.anchor_real),
     )
     df_out_oper, n_added_oper = _expand_ml2_horizon_rows(df_out_oper)
+    df_out_oper = _dedup_harvest_grade_rows(df_out_oper, prefer_real=bool(args.anchor_real))
+    if bool(args.anchor_real):
+        df_out_oper = _overlay_operational_real_harvest(df_out_oper)
     bundle_oper = _compute_metrics_bundle(df=df, df_out=df_out_oper, specs=specs, dyn=dyn_oper)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    out_path_pure = Path(args.output_puro) if args.output_puro else (OUT_DIR / f"pred_ml2_multitask_nn_puro_{run_id}.parquet")
-    out_path_oper = Path(args.output_operativo) if args.output_operativo else (
-        Path(args.output) if args.output else (OUT_DIR / f"pred_ml2_multitask_nn_operativo_{run_id}.parquet")
+    out_path_global = Path(args.output_global) if args.output_global else (
+        Path(args.output) if args.output else (OUT_DIR / f"pred_ml2_multitask_nn_global_{run_id}.parquet")
     )
+    out_path_pure = Path(args.output_puro) if args.output_puro else (OUT_DIR / f"pred_ml2_multitask_nn_puro_{run_id}.parquet")
+    out_path_oper = Path(args.output_operativo) if args.output_operativo else (OUT_DIR / f"pred_ml2_multitask_nn_operativo_{run_id}.parquet")
     legacy_path = OUT_DIR / f"pred_ml2_multitask_nn_{run_id}.parquet"
 
+    write_parquet(df_out_global, out_path_global)
     write_parquet(df_out_pure, out_path_pure)
     write_parquet(df_out_oper, out_path_oper)
     if bool(args.write_legacy_alias):
-        if out_path_oper.resolve() != legacy_path.resolve():
-            write_parquet(df_out_oper, legacy_path)
+        if out_path_global.resolve() != legacy_path.resolve():
+            write_parquet(df_out_global, legacy_path)
         else:
-            legacy_path = out_path_oper
+            legacy_path = out_path_global
 
     EVAL_DIR.mkdir(parents=True, exist_ok=True)
+    metrics_global = _metrics_frame(
+        run_id=run_id,
+        layer_name="ML2_GLOBAL",
+        in_path=in_path,
+        out_path=out_path_global,
+        dyn=dyn_global,
+        bundle=bundle_global,
+        n_rows=len(df_out_global),
+        anchor_real=False,
+    )
     metrics_pure = _metrics_frame(
         run_id=run_id,
         layer_name="ML2_PURO",
@@ -1240,62 +1682,75 @@ def main() -> None:
         anchor_real=bool(args.anchor_real),
     )
 
+    metrics_global_path = EVAL_DIR / f"ml2_multitask_nn_apply_metrics_global_{run_id}.parquet"
     metrics_pure_path = EVAL_DIR / f"ml2_multitask_nn_apply_metrics_puro_{run_id}.parquet"
     metrics_oper_path = EVAL_DIR / f"ml2_multitask_nn_apply_metrics_operativo_{run_id}.parquet"
     metrics_layers_path = EVAL_DIR / f"ml2_multitask_nn_apply_metrics_layers_{run_id}.parquet"
     metrics_legacy_path = EVAL_DIR / f"ml2_multitask_nn_apply_metrics_{run_id}.parquet"
 
+    write_parquet(metrics_global, metrics_global_path)
     write_parquet(metrics_pure, metrics_pure_path)
     write_parquet(metrics_oper, metrics_oper_path)
-    write_parquet(pd.concat([metrics_pure, metrics_oper], ignore_index=True), metrics_layers_path)
-    # legacy metrics alias keeps operational semantics.
-    write_parquet(metrics_oper, metrics_legacy_path)
+    write_parquet(pd.concat([metrics_global, metrics_pure, metrics_oper], ignore_index=True), metrics_layers_path)
+    # legacy metrics alias keeps global semantics.
+    write_parquet(metrics_global, metrics_legacy_path)
 
+    g_global = bundle_global["global_metrics"]
     g_pure = bundle_pure["global_metrics"]
     g_oper = bundle_oper["global_metrics"]
+    gd_global = bundle_global["global_dyn_metrics"]
     gd_pure = bundle_pure["global_dyn_metrics"]
     gd_oper = bundle_oper["global_dyn_metrics"]
+    ad_global = bundle_global["active_dyn_metrics"]
     ad_pure = bundle_pure["active_dyn_metrics"]
     ad_oper = bundle_oper["active_dyn_metrics"]
 
     print("[OK] Predictions written:")
+    print(f"     ML2_global    : {out_path_global}")
     print(f"     ML2_puro      : {out_path_pure}")
     print(f"     ML2_operativo : {out_path_oper}")
     if bool(args.write_legacy_alias):
         print(f"     legacy alias  : {legacy_path}")
     print("[OK] Metrics written:")
+    print(f"     global    : {metrics_global_path}")
     print(f"     puro      : {metrics_pure_path}")
     print(f"     operativo : {metrics_oper_path}")
     print(f"     layers    : {metrics_layers_path}")
     print(f"     legacy    : {metrics_legacy_path}")
     print(
         "     R2 avg global model "
+        f"global={g_global.get('r2_ml2_avg', np.nan):.6f} "
         f"puro={g_pure.get('r2_ml2_avg', np.nan):.6f} "
         f"operativo={g_oper.get('r2_ml2_avg', np.nan):.6f}"
     )
     print(
         "     R2 avg global dynamic "
+        f"global={gd_global.get('r2_ml2_avg', np.nan):.6f} "
         f"puro={gd_pure.get('r2_ml2_avg', np.nan):.6f} "
         f"operativo={gd_oper.get('r2_ml2_avg', np.nan):.6f}"
     )
     print(
         "     R2 avg active dynamic "
+        f"global={ad_global.get('r2_ml2_avg', np.nan):.6f} "
         f"puro={ad_pure.get('r2_ml2_avg', np.nan):.6f} "
         f"operativo={ad_oper.get('r2_ml2_avg', np.nan):.6f}"
     )
     print(
         "     MAE avg active dynamic "
+        f"global={ad_global.get('mae_ml2_avg', np.nan):.6f} "
         f"puro={ad_pure.get('mae_ml2_avg', np.nan):.6f} "
         f"operativo={ad_oper.get('mae_ml2_avg', np.nan):.6f}"
     )
     print(
         "     Dynamic iters "
+        f"global={int(dyn_global['iterations'])} "
         f"puro={int(dyn_pure['iterations'])} "
         f"operativo={int(dyn_oper['iterations'])} "
         f"oper_converged={bool(dyn_oper['converged'])}"
     )
     print(
         "     rows_expanded "
+        f"global={n_added_global:,} "
         f"puro={n_added_pure:,} "
         f"operativo={n_added_oper:,}"
     )

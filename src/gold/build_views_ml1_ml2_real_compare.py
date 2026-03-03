@@ -26,7 +26,8 @@ IN_DIM_VAR = SILVER / "dim_variedad_canon.parquet"
 
 def _parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser("build_views_ml1_ml2_real_compare")
-    ap.add_argument("--pred-ml2", default=None, help="Legacy ML2 path (treated as operativo input).")
+    ap.add_argument("--pred-ml2", default=None, help="Legacy ML2 path (treated as global input).")
+    ap.add_argument("--pred-ml2-global", default=None, help="Path pred_ml2_multitask_nn_global_*.parquet")
     ap.add_argument("--pred-ml2-puro", default=None, help="Path pred_ml2_multitask_nn_puro_*.parquet")
     ap.add_argument("--pred-ml2-operativo", default=None, help="Path pred_ml2_multitask_nn_operativo_*.parquet")
     ap.add_argument("--output-dir", default=str(GOLD_ML2))
@@ -57,6 +58,9 @@ def _safe_div(a: pd.Series, b: pd.Series, default: float = np.nan) -> pd.Series:
 
 
 def _latest_pred_ml2() -> Path:
+    files = sorted(GOLD_ML2.glob("pred_ml2_multitask_nn_global_*.parquet"))
+    if files:
+        return files[-1]
     files = sorted(GOLD_ML2.glob("pred_ml2_multitask_nn_operativo_*.parquet"))
     if files:
         return files[-1]
@@ -67,7 +71,7 @@ def _latest_pred_ml2() -> Path:
 
 
 def _run_id_from_path(path: Path) -> str:
-    m = re.search(r"pred_ml2_multitask_nn_(?:puro_|operativo_)?(.+)\.parquet$", path.name)
+    m = re.search(r"pred_ml2_multitask_nn_(?:global_|puro_|operativo_)?(.+)\.parquet$", path.name)
     return m.group(1) if m else "unknown"
 
 
@@ -526,11 +530,16 @@ def _realign_temporal_axis(v: pd.DataFrame) -> None:
         v.loc[m_fp, "fecha_post"] = (fev.loc[m_fp] + pd.to_timedelta(dh_int, unit="D")).dt.normalize()
 
 
-def _balance_ml2_to_tallos_proy(v: pd.DataFrame) -> None:
+def _balance_ml2_to_tallos_proy(v: pd.DataFrame, preserve_real: bool = False) -> None:
     m_hg = v["stage"].eq("HARVEST_GRADE")
     m_post = v["stage"].eq("POST")
     if not m_hg.any():
         return
+
+    m_hg_real = pd.Series(False, index=v.index)
+    if preserve_real and "ml2_anchor_real" in v.columns:
+        m_hg_real = m_hg & pd.to_numeric(v["ml2_anchor_real"], errors="coerce").fillna(0.0).gt(0.0)
+    m_hg_scale = m_hg & ~m_hg_real
 
     cyc = (
         v.loc[m_hg]
@@ -540,27 +549,56 @@ def _balance_ml2_to_tallos_proy(v: pd.DataFrame) -> None:
             tallos_target=("tallos_proy", "max"),
         )
     )
+    if preserve_real:
+        cyc_real = (
+            v.loc[m_hg_real]
+            .groupby("ciclo_id", dropna=False, as_index=False)
+            .agg(tallos_real_fixed=("tallos_grado_dia", "sum"))
+        )
+        cyc_pred = (
+            v.loc[m_hg_scale]
+            .groupby("ciclo_id", dropna=False, as_index=False)
+            .agg(tallos_pred_scalable=("tallos_grado_dia", "sum"))
+        )
+        cyc = cyc.merge(cyc_real, on="ciclo_id", how="left").merge(cyc_pred, on="ciclo_id", how="left")
+        cyc["tallos_real_fixed"] = pd.to_numeric(cyc["tallos_real_fixed"], errors="coerce").fillna(0.0)
+        cyc["tallos_pred_scalable"] = pd.to_numeric(cyc["tallos_pred_scalable"], errors="coerce").fillna(0.0)
+        # Dynamic target update: if observed real already exceeds original target,
+        # keep projected non-real remainder instead of collapsing it to zero.
+        cyc["tallos_target_eff"] = np.maximum(
+            pd.to_numeric(cyc["tallos_target"], errors="coerce").fillna(0.0),
+            cyc["tallos_real_fixed"] + cyc["tallos_pred_scalable"],
+        )
+        cyc["tallos_remaining"] = (cyc["tallos_target_eff"] - cyc["tallos_real_fixed"]).clip(lower=0.0)
+
     cyc["tallos_target"] = pd.to_numeric(cyc["tallos_target"], errors="coerce")
     cyc["tallos_pred_total"] = pd.to_numeric(cyc["tallos_pred_total"], errors="coerce")
-    cyc["scale_hg"] = np.where(
-        cyc["tallos_target"].notna() & (cyc["tallos_target"] > 0) & (cyc["tallos_pred_total"] > 0),
-        cyc["tallos_target"] / cyc["tallos_pred_total"],
-        1.0,
-    )
+    if preserve_real:
+        cyc["scale_hg"] = np.where(
+            cyc["tallos_pred_scalable"] > 0,
+            cyc["tallos_remaining"] / cyc["tallos_pred_scalable"],
+            1.0,
+        )
+    else:
+        cyc["scale_hg"] = np.where(
+            cyc["tallos_target"].notna() & (cyc["tallos_target"] > 0) & (cyc["tallos_pred_total"] > 0),
+            cyc["tallos_target"] / cyc["tallos_pred_total"],
+            1.0,
+        )
     scale_map = pd.Series(cyc["scale_hg"].to_numpy(dtype="float64"), index=cyc["ciclo_id"].astype("string"))
     sc = v["ciclo_id"].astype("string").map(scale_map).fillna(1.0)
 
     # HG: enforce mass balance on stems and derived green weight.
-    v.loc[m_hg, "tallos_grado_dia"] = pd.to_numeric(v.loc[m_hg, "tallos_grado_dia"], errors="coerce") * sc.loc[m_hg]
-    v.loc[m_hg, "tallos_dia"] = pd.to_numeric(v.loc[m_hg, "tallos_dia"], errors="coerce") * sc.loc[m_hg]
+    v.loc[m_hg_scale, "tallos_grado_dia"] = pd.to_numeric(v.loc[m_hg_scale, "tallos_grado_dia"], errors="coerce") * sc.loc[m_hg_scale]
+    v.loc[m_hg_scale, "tallos_dia"] = pd.to_numeric(v.loc[m_hg_scale, "tallos_dia"], errors="coerce") * sc.loc[m_hg_scale]
 
     # Recompute kg verde from tallos * peso for internal consistency.
     peso_base = pd.to_numeric(v.get("factor_peso_tallo"), errors="coerce").fillna(1.0)
     # factor_peso_tallo multiplies baseline stem weight available in source base;
     # if base weight isn't materialized here, keep proportional scaling on kg.
     if "kg_verde" in v.columns:
-        v.loc[m_hg, "kg_verde"] = pd.to_numeric(v.loc[m_hg, "kg_verde"], errors="coerce") * sc.loc[m_hg]
-        v.loc[m_hg, "gramos_verde"] = pd.to_numeric(v.loc[m_hg, "gramos_verde"], errors="coerce") * sc.loc[m_hg]
+        v.loc[m_hg_scale, "kg_verde"] = pd.to_numeric(v.loc[m_hg_scale, "kg_verde"], errors="coerce") * sc.loc[m_hg_scale]
+        v.loc[m_hg_scale, "gramos_verde"] = pd.to_numeric(v.loc[m_hg_scale, "gramos_verde"], errors="coerce") * sc.loc[m_hg_scale]
 
     # POST: keep consistency with upstream stems/green split.
     if m_post.any():
@@ -628,6 +666,39 @@ def _build_view_ml1(base: pd.DataFrame, run_id: str) -> pd.DataFrame:
             v[c] = v[f"{c}_cyc"]
             v = v.drop(columns=[f"{c}_cyc"])
 
+    # ML1 timeline should follow ML1 projected harvest rows (pure model output),
+    # not an inferred VEG start that can be inconsistent after chain rebuild.
+    hg_obs = base.loc[base["stage"].eq("HARVEST_GRADE"), ["ciclo_id", "fecha_evento"]].copy()
+    if not hg_obs.empty:
+        hg_obs["fecha_evento"] = _to_date(hg_obs["fecha_evento"])
+        hg_obs = (
+            hg_obs.dropna(subset=["ciclo_id", "fecha_evento"])
+            .groupby("ciclo_id", dropna=False, as_index=False)
+            .agg(harvest_start_obs=("fecha_evento", "min"), harvest_end_obs=("fecha_evento", "max"))
+        )
+        hg_obs["n_harvest_days_obs"] = (
+            pd.to_datetime(hg_obs["harvest_end_obs"], errors="coerce")
+            - pd.to_datetime(hg_obs["harvest_start_obs"], errors="coerce")
+        ).dt.days + 1
+        v = v.merge(hg_obs, on="ciclo_id", how="left")
+        m_obs = pd.to_datetime(v.get("harvest_start_obs"), errors="coerce").notna()
+        if m_obs.any():
+            v.loc[m_obs, "harvest_start"] = _to_date(v.loc[m_obs, "harvest_start_obs"])
+            n_pred = _num(v.loc[m_obs, "n_harvest_days"], default=np.nan)
+            n_obs = _num(v.loc[m_obs, "n_harvest_days_obs"], default=np.nan)
+            n_use = n_pred.where(n_pred.notna() & (n_pred >= n_obs), n_obs)
+            n_use = n_use.clip(lower=1.0)
+            v.loc[m_obs, "n_harvest_days"] = n_use
+            v.loc[m_obs, "harvest_end"] = (
+                pd.to_datetime(v.loc[m_obs, "harvest_start"], errors="coerce")
+                + pd.to_timedelta(np.rint(n_use).astype(int) - 1, unit="D")
+            ).dt.normalize()
+            v.loc[m_obs, "d_start"] = (
+                pd.to_datetime(v.loc[m_obs, "harvest_start"], errors="coerce")
+                - pd.to_datetime(v.loc[m_obs, "fecha_sp"], errors="coerce")
+            ).dt.days
+        v = v.drop(columns=[c for c in ["harvest_start_obs", "harvest_end_obs", "n_harvest_days_obs"] if c in v.columns])
+
     # Recompute ML1 day index from its own harvest_start to avoid contamination from ML2-expanded rows.
     fev = _to_date(v["fecha_evento"])
     hs = _to_date(v["harvest_start"])
@@ -635,7 +706,8 @@ def _build_view_ml1(base: pd.DataFrame, run_id: str) -> pd.DataFrame:
     m_chain = v["stage"].isin(["HARVEST_GRADE", "POST"]) & hs.notna() & fev.notna()
     day_base = _num(base.get("day_in_harvest"), default=np.nan)
     v["day_in_harvest"] = day_base
-    v.loc[m_chain, "day_in_harvest"] = pd.to_numeric(d_calc.loc[m_chain], errors="coerce")
+    day_calc = pd.to_numeric(d_calc.loc[m_chain], errors="coerce")
+    v.loc[m_chain, "day_in_harvest"] = day_calc.where(day_calc >= 1.0, np.nan)
     v["rel_pos"] = _safe_div(v["day_in_harvest"], v["n_harvest_days"], default=np.nan)
     v["factor_tallos_dia"] = _num(base.get("pred_factor_tallos_dia"), default=np.nan)
     v["share_grado"] = _num(base.get("pred_share_grado"), default=np.nan)
@@ -681,34 +753,71 @@ def _build_view_ml2(base: pd.DataFrame, run_id: str, source: str) -> pd.DataFram
             v[c] = v[f"{c}_cyc"]
             v = v.drop(columns=[f"{c}_cyc"])
 
-    # If real start exists, ML2 planning timeline anchors from real start.
-    veg_anchor = base.loc[base["stage"].eq("VEG"), ["ciclo_id", "fecha_evento", "target_d_start"]].copy()
-    if not veg_anchor.empty:
-        veg_anchor = veg_anchor.sort_values("fecha_evento").drop_duplicates(subset=["ciclo_id"], keep="last")
-        veg_anchor["fecha_sp"] = _to_date(veg_anchor["fecha_evento"])
-        veg_anchor["d_start_real"] = _num(veg_anchor.get("target_d_start"), default=np.nan)
-        m_real = veg_anchor["d_start_real"].notna()
-        if m_real.any():
-            veg_anchor.loc[m_real, "harvest_start_real"] = veg_anchor.loc[m_real, "fecha_sp"] + pd.to_timedelta(
-                np.rint(veg_anchor.loc[m_real, "d_start_real"]).astype(int), unit="D"
+    # Only operativo should anchor timeline to real start.
+    if source == "ML2_OPERATIVO":
+        veg_anchor = base.loc[base["stage"].eq("VEG"), ["ciclo_id", "fecha_evento", "target_d_start"]].copy()
+        if not veg_anchor.empty:
+            veg_anchor = veg_anchor.sort_values("fecha_evento").drop_duplicates(subset=["ciclo_id"], keep="last")
+            veg_anchor["fecha_sp"] = _to_date(veg_anchor["fecha_evento"])
+            veg_anchor["d_start_real"] = _num(veg_anchor.get("target_d_start"), default=np.nan)
+            m_real = veg_anchor["d_start_real"].notna()
+            if m_real.any():
+                veg_anchor.loc[m_real, "harvest_start_real"] = veg_anchor.loc[m_real, "fecha_sp"] + pd.to_timedelta(
+                    np.rint(veg_anchor.loc[m_real, "d_start_real"]).astype(int), unit="D"
+                )
+                anchor_map = pd.Series(
+                    pd.to_datetime(veg_anchor["harvest_start_real"], errors="coerce").dt.normalize().to_numpy(),
+                    index=veg_anchor["ciclo_id"].astype("string"),
+                )
+                d_map = pd.Series(veg_anchor["d_start_real"].to_numpy(dtype="float64"), index=veg_anchor["ciclo_id"].astype("string"))
+                cid = v["ciclo_id"].astype("string")
+                hs_anchor = pd.to_datetime(cid.map(anchor_map), errors="coerce").dt.normalize()
+                m_has = hs_anchor.notna()
+                v.loc[m_has, "harvest_start"] = hs_anchor.loc[m_has]
+                v.loc[m_has, "d_start"] = pd.to_numeric(cid.loc[m_has].map(d_map), errors="coerce")
+                nd = pd.to_numeric(v.loc[m_has, "n_harvest_days"], errors="coerce").fillna(1.0).clip(lower=1.0)
+                v.loc[m_has, "harvest_end"] = (
+                    pd.to_datetime(v.loc[m_has, "harvest_start"], errors="coerce")
+                    + pd.to_timedelta(np.rint(nd).astype(int) - 1, unit="D")
+                ).dt.normalize()
+    else:
+        # ML2_global / ML2_puro must follow the ML2 projected event axis directly.
+        date_axis = _to_date(base.get("fecha_evento_ml2")).fillna(_to_date(base.get("fecha_evento")))
+        hg_obs = base.loc[base["stage"].eq("HARVEST_GRADE"), ["ciclo_id"]].copy()
+        hg_obs["fev"] = date_axis.loc[hg_obs.index]
+        if not hg_obs.empty:
+            hg_obs = (
+                hg_obs.dropna(subset=["ciclo_id", "fev"])
+                .groupby("ciclo_id", dropna=False, as_index=False)
+                .agg(harvest_start_obs=("fev", "min"), harvest_end_obs=("fev", "max"))
             )
-            anchor_map = pd.Series(
-                pd.to_datetime(veg_anchor["harvest_start_real"], errors="coerce").dt.normalize().to_numpy(),
-                index=veg_anchor["ciclo_id"].astype("string"),
-            )
-            d_map = pd.Series(veg_anchor["d_start_real"].to_numpy(dtype="float64"), index=veg_anchor["ciclo_id"].astype("string"))
-            cid = v["ciclo_id"].astype("string")
-            hs_anchor = pd.to_datetime(cid.map(anchor_map), errors="coerce").dt.normalize()
-            m_has = hs_anchor.notna()
-            v.loc[m_has, "harvest_start"] = hs_anchor.loc[m_has]
-            v.loc[m_has, "d_start"] = pd.to_numeric(cid.loc[m_has].map(d_map), errors="coerce")
-            nd = pd.to_numeric(v.loc[m_has, "n_harvest_days"], errors="coerce").fillna(1.0).clip(lower=1.0)
-            v.loc[m_has, "harvest_end"] = (
-                pd.to_datetime(v.loc[m_has, "harvest_start"], errors="coerce")
-                + pd.to_timedelta(np.rint(nd).astype(int) - 1, unit="D")
-            ).dt.normalize()
+            hg_obs["n_harvest_days_obs"] = (
+                pd.to_datetime(hg_obs["harvest_end_obs"], errors="coerce")
+                - pd.to_datetime(hg_obs["harvest_start_obs"], errors="coerce")
+            ).dt.days + 1
+            v = v.merge(hg_obs, on="ciclo_id", how="left")
+            m_obs = pd.to_datetime(v.get("harvest_start_obs"), errors="coerce").notna()
+            if m_obs.any():
+                v.loc[m_obs, "harvest_start"] = _to_date(v.loc[m_obs, "harvest_start_obs"])
+                n_pred = _num(v.loc[m_obs, "n_harvest_days"], default=np.nan)
+                n_obs = _num(v.loc[m_obs, "n_harvest_days_obs"], default=np.nan)
+                n_use = n_pred.where(n_pred.notna() & (n_pred >= n_obs), n_obs).clip(lower=1.0)
+                v.loc[m_obs, "n_harvest_days"] = n_use
+                v.loc[m_obs, "harvest_end"] = (
+                    pd.to_datetime(v.loc[m_obs, "harvest_start"], errors="coerce")
+                    + pd.to_timedelta(np.rint(n_use).astype(int) - 1, unit="D")
+                ).dt.normalize()
+                v.loc[m_obs, "d_start"] = (
+                    pd.to_datetime(v.loc[m_obs, "harvest_start"], errors="coerce")
+                    - pd.to_datetime(v.loc[m_obs, "fecha_sp"], errors="coerce")
+                ).dt.days
+            v = v.drop(columns=[c for c in ["harvest_start_obs", "harvest_end_obs", "n_harvest_days_obs"] if c in v.columns])
 
     v["fecha_post"] = _to_date(base.get("fecha_post_ml2")).fillna(_to_date(base["fecha_post"]))
+    if "ml2_anchor_real" in base.columns:
+        v["ml2_anchor_real"] = pd.to_numeric(base.get("ml2_anchor_real"), errors="coerce").fillna(0.0).gt(0.0)
+    else:
+        v["ml2_anchor_real"] = False
     day_ml2 = _num(base.get("day_in_harvest_ml2"), default=np.nan)
     day_ml1 = _num(base.get("day_in_harvest"), default=np.nan)
     day_ml2 = day_ml2.where(day_ml2 >= 1, np.nan)
@@ -738,7 +847,7 @@ def _build_view_ml2(base: pd.DataFrame, run_id: str, source: str) -> pd.DataFram
 
     _expand_missing_horizon_rows(v)
     _realign_temporal_axis(v)
-    _balance_ml2_to_tallos_proy(v)
+    _balance_ml2_to_tallos_proy(v, preserve_real=source == "ML2_OPERATIVO")
     _apply_stage_masks(v)
     _fill_cycle_totals(v)
     return v
@@ -873,23 +982,30 @@ def _write_named_and_latest(df: pd.DataFrame, out_dir: Path, stem: str, run_id: 
 
 def main() -> None:
     args = _parse_args()
-    pred_oper_path = (
-        Path(args.pred_ml2_operativo)
-        if args.pred_ml2_operativo
+    pred_global_path = (
+        Path(args.pred_ml2_global)
+        if args.pred_ml2_global
         else (Path(args.pred_ml2) if args.pred_ml2 else _latest_pred_ml2())
     )
-    if not pred_oper_path.exists():
-        raise FileNotFoundError(f"ML2 operativo prediction file not found: {pred_oper_path}")
+    if not pred_global_path.exists():
+        raise FileNotFoundError(f"ML2 global prediction file not found: {pred_global_path}")
 
-    run_id = _run_id_from_path(pred_oper_path)
+    run_id = _run_id_from_path(pred_global_path)
+    pred_oper_path = Path(args.pred_ml2_operativo) if args.pred_ml2_operativo else (
+        pred_global_path.parent / f"pred_ml2_multitask_nn_operativo_{run_id}.parquet"
+    )
+    if not pred_oper_path.exists():
+        pred_oper_path = pred_global_path
     pred_pure_path = Path(args.pred_ml2_puro) if args.pred_ml2_puro else (
-        pred_oper_path.parent / f"pred_ml2_multitask_nn_puro_{run_id}.parquet"
+        pred_global_path.parent / f"pred_ml2_multitask_nn_puro_{run_id}.parquet"
     )
     if not pred_pure_path.exists():
-        pred_pure_path = pred_oper_path
+        pred_pure_path = pred_global_path
 
+    pred_global = read_parquet(pred_global_path).copy()
     pred_oper = read_parquet(pred_oper_path).copy()
     pred_pure = read_parquet(pred_pure_path).copy()
+    base_global = _base_from_pred(pred_global)
     base_oper = _base_from_pred(pred_oper)
     base_pure = _base_from_pred(pred_pure)
 
@@ -905,6 +1021,7 @@ def main() -> None:
                 base_ml1 = _base_from_pred(pred_ml1)
 
     view_ml1 = _build_view_ml1(base=base_ml1, run_id=run_id)
+    view_ml2_global = _build_view_ml2(base=base_global, run_id=run_id, source="ML2_GLOBAL")
     view_ml2_puro = _build_view_ml2(base=base_pure, run_id=run_id, source="ML2_PURO")
     view_ml2_oper = _build_view_ml2(base=base_oper, run_id=run_id, source="ML2_OPERATIVO")
     # REAL view must be anchored on ML1 base (closest to raw operational timeline),
@@ -916,27 +1033,27 @@ def main() -> None:
 
     out_dir = Path(args.output_dir)
     p1_run, p1_latest = _write_named_and_latest(view_ml1, out_dir, "view_pipeline_ml1_global", run_id)
+    p2g_run, p2g_latest = _write_named_and_latest(view_ml2_global, out_dir, "view_pipeline_ml2_global", run_id)
     p2p_run, p2p_latest = _write_named_and_latest(view_ml2_puro, out_dir, "view_pipeline_ml2_puro_global", run_id)
     p2o_run, p2o_latest = _write_named_and_latest(view_ml2_oper, out_dir, "view_pipeline_ml2_operativo_global", run_id)
-    # Legacy ML2 alias keeps operativo semantics.
-    p2_run, p2_latest = _write_named_and_latest(view_ml2_oper, out_dir, "view_pipeline_ml2_global", run_id)
     p3_run, p3_latest = _write_named_and_latest(view_real, out_dir, "view_pipeline_real_global", run_id)
 
     print("[OK] Wrote separated global views (VEG/HARVEST_GRADE/POST):")
     print(f"     ML1            : {p1_run}")
+    print(f"     ML2_global     : {p2g_run}")
     print(f"     ML2_puro       : {p2p_run}")
     print(f"     ML2_operativo  : {p2o_run}")
     print(f"     REAL           : {p3_run}")
-    print(f"     ML2 legacy     : {p2_run}")
     print("[OK] Latest aliases:")
     print(f"     {p1_latest}")
+    print(f"     {p2g_latest}")
     print(f"     {p2p_latest}")
     print(f"     {p2o_latest}")
-    print(f"     {p2_latest}")
     print(f"     {p3_latest}")
     print(
         "     rows="
         f"ml1:{len(view_ml1):,} "
+        f"ml2_global:{len(view_ml2_global):,} "
         f"ml2_puro:{len(view_ml2_puro):,} "
         f"ml2_operativo:{len(view_ml2_oper):,} "
         f"real:{len(view_real):,}"
