@@ -24,6 +24,7 @@ EVAL_DIR = DATA_DIR / "eval" / "ml2"
 IN_CICLO = SILVER_DIR / "fact_ciclo_maestro.parquet"
 IN_GRID_ML1 = GOLD_DIR / "universe_harvest_grid_ml1.parquet"
 IN_CLIMA = SILVER_DIR / "dim_clima_bloque_dia.parquet"
+IN_REAL = SILVER_DIR / "fact_cosecha_real_grado_dia.parquet"
 
 # ML2 Inicio (SoH) outputs
 IN_SOH_FINAL_PROD = GOLD_DIR / "pred_harvest_start_final_ml2.parquet"
@@ -51,6 +52,19 @@ def _canon_str(s: pd.Series) -> pd.Series:
 def _safe_div(a: pd.Series, b: pd.Series) -> pd.Series:
     b = b.replace(0, np.nan)
     return (a / b).fillna(0.0)
+
+
+def _resolve_block_base(df: pd.DataFrame) -> pd.DataFrame:
+    if "bloque_base" in df.columns:
+        df["bloque_base"] = _canon_str(df["bloque_base"])
+        return df
+    if "bloque_padre" in df.columns:
+        df["bloque_base"] = _canon_str(df["bloque_padre"])
+        return df
+    if "bloque" in df.columns:
+        df["bloque_base"] = _canon_str(df["bloque"])
+        return df
+    raise KeyError("No encuentro bloque_base / bloque_padre / bloque en fact_cosecha_real_grado_dia.")
 
 
 def _build_cycle_header(grid: pd.DataFrame) -> pd.DataFrame:
@@ -196,14 +210,20 @@ def main() -> None:
     ciclo = read_parquet(IN_CICLO).copy()
     grid = read_parquet(IN_GRID_ML1).copy()
     clima = read_parquet(IN_CLIMA).copy()
+    real = read_parquet(IN_REAL).copy()
 
     ciclo["bloque_base"] = _canon_str(ciclo["bloque_base"])
     ciclo["fecha_sp"] = _to_date(ciclo["fecha_sp"])
     ciclo["fecha_inicio_cosecha"] = _to_date(ciclo["fecha_inicio_cosecha"])
+    ciclo["fecha_fin_cosecha"] = _to_date(ciclo["fecha_fin_cosecha"])
     ciclo["estado"] = _canon_str(ciclo["estado"])
 
     grid["bloque_base"] = _canon_str(grid["bloque_base"])
     grid["variedad_canon"] = _canon_str(grid["variedad_canon"])
+
+    real["fecha"] = _to_date(real["fecha"])
+    real = _resolve_block_base(real)
+    real["tallos_real"] = pd.to_numeric(real["tallos_real"], errors="coerce").fillna(0.0)
 
     head = _build_cycle_header(grid)
     df = ciclo.merge(head, on="ciclo_id", how="inner", suffixes=("", "_ml1"))
@@ -219,6 +239,13 @@ def main() -> None:
         # backtest causal: usar inicio real - 1
         df = df.loc[df["fecha_inicio_cosecha"].notna(), :].copy()
         df["as_of_date"] = df["fecha_inicio_cosecha"] - pd.to_timedelta(1, unit="D")
+
+    # Cerrado/activo: en cerrados no recalcular por ML2.
+    df["is_closed_cycle"] = (
+        df["estado"].eq("CERRADO")
+        | (df["fecha_fin_cosecha"].notna() & (df["fecha_fin_cosecha"] <= df["as_of_date"]))
+    )
+    df["is_active_cycle"] = ~df["is_closed_cycle"]
 
     # --- SoH (ML2 Inicio): harvest_start_final + pred_error_start_days ---
     soh_final_path, soh_factor_path = _pick_soh_inputs(args.mode)
@@ -272,20 +299,111 @@ def main() -> None:
     feature_cols = meta["num_cols"] + meta["cat_cols"]
     X = df[feature_cols].copy()
 
-    pred_err = model.predict(X).astype(float)
+    pred_err_raw = pd.to_numeric(pd.Series(model.predict(X)), errors="coerce").fillna(0.0).astype(float)
     lo, hi = meta["guardrails"]["clip_error_days"]
-    pred_err = np.clip(pred_err, lo, hi)
+    pred_err_clip = np.clip(pred_err_raw, lo, hi)
+    pred_err_days = np.rint(pred_err_clip).astype("Int64")
 
-    df["pred_error_horizon_days"] = pred_err
+    df["pred_error_horizon_days_raw"] = pred_err_raw
+    df["pred_error_horizon_days_model"] = pred_err_days
 
-    # Horizon final (min 7)
+    # Horizon ML2 puro (antes de anclaje)
     df["n_harvest_days_pred"] = pd.to_numeric(df["n_harvest_days_pred"], errors="coerce").fillna(0.0)
-    df["n_harvest_days_final"] = df["n_harvest_days_pred"] + df["pred_error_horizon_days"]
-    df["n_harvest_days_final"] = df["n_harvest_days_final"].clip(lower=meta["guardrails"]["min_horizon_days"])
+    df["n_harvest_days_ml2_model"] = (
+        df["n_harvest_days_pred"] + df["pred_error_horizon_days_model"].fillna(0).astype(float)
+    )
+    df["n_harvest_days_ml2_model"] = np.rint(df["n_harvest_days_ml2_model"]).astype("Int64")
 
-    # harvest_end_final derivado desde harvest_start_final
-    # Usamos "-1" para mantener consistencia si duración cuenta día 1 como inicio
-    df["harvest_end_final"] = df["harvest_start_final"] + pd.to_timedelta(df["n_harvest_days_final"] - 1, unit="D")
+    min_h = int(meta["guardrails"]["min_horizon_days"])
+    df["n_harvest_days_ml2_model"] = df["n_harvest_days_ml2_model"].clip(lower=min_h)
+
+    # Anclaje a real de horizonte.
+    has_end_real = (
+        df["fecha_fin_cosecha"].notna()
+        & (df["fecha_fin_cosecha"] >= df["harvest_start_final"])
+        & (df["fecha_fin_cosecha"] <= df["as_of_date"])
+    )
+    n_real = (df["fecha_fin_cosecha"] - df["harvest_start_final"]).dt.days + 1
+    n_real = pd.to_numeric(n_real, errors="coerce").astype("Int64")
+
+    # Progreso real acumulado al as_of (solo para ciclos activos, para extender horizonte si van atrasados).
+    cyc = df[["ciclo_id", "bloque_base", "harvest_start_final", "as_of_date", "tallos_proy"]].drop_duplicates().copy()
+    m = cyc.merge(real[["fecha", "bloque_base", "tallos_real"]], on="bloque_base", how="left")
+    m = m.loc[(m["fecha"] >= m["harvest_start_final"]) & (m["fecha"] <= m["as_of_date"]), :].copy()
+    real_cum = (
+        m.groupby("ciclo_id", as_index=False)
+        .agg(tallos_real_cum_asof=("tallos_real", "sum"))
+    )
+    df = df.merge(real_cum, on="ciclo_id", how="left")
+    df["tallos_real_cum_asof"] = pd.to_numeric(df["tallos_real_cum_asof"], errors="coerce").fillna(0.0)
+
+    df["tallos_proy"] = pd.to_numeric(df["tallos_proy"], errors="coerce")
+    df["real_progress_asof"] = np.where(
+        df["tallos_proy"] > 0,
+        (df["tallos_real_cum_asof"] / df["tallos_proy"]).clip(lower=0.0, upper=1.0),
+        np.nan,
+    )
+
+    elapsed_days = ((df["as_of_date"] - df["harvest_start_final"]).dt.days + 1).clip(lower=1)
+    elapsed_days = pd.to_numeric(elapsed_days, errors="coerce").fillna(1.0)
+    df["expected_progress_model"] = (
+        elapsed_days / pd.to_numeric(df["n_harvest_days_ml2_model"], errors="coerce").replace(0, np.nan)
+    ).clip(lower=0.0, upper=1.0)
+    df["progress_gap"] = df["real_progress_asof"] - df["expected_progress_model"]
+
+    implied_h = np.where(
+        pd.to_numeric(df["real_progress_asof"], errors="coerce").fillna(0.0) > 0,
+        np.ceil(elapsed_days / pd.to_numeric(df["real_progress_asof"], errors="coerce").clip(lower=1e-6)),
+        np.nan,
+    )
+    df["implied_horizon_from_real_progress"] = pd.to_numeric(implied_h, errors="coerce")
+
+    lag_mask = (
+        df["is_active_cycle"]
+        & (~has_end_real)
+        & df["real_progress_asof"].notna()
+        & df["expected_progress_model"].notna()
+        & (df["real_progress_asof"] > 0)
+        & (df["real_progress_asof"] < (df["expected_progress_model"] * 0.98))
+    )
+    df["is_lagging_progress"] = lag_mask
+
+    n_active = pd.to_numeric(df["n_harvest_days_ml2_model"], errors="coerce").fillna(min_h)
+    n_active = np.where(lag_mask, np.maximum(n_active, df["implied_horizon_from_real_progress"]), n_active)
+    n_active = pd.to_numeric(n_active, errors="coerce")
+
+    # Cerrado: no recalcular (usar real si existe; fallback ML1).
+    n_closed = np.where(
+        has_end_real,
+        pd.to_numeric(n_real, errors="coerce"),
+        np.rint(pd.to_numeric(df["n_harvest_days_pred"], errors="coerce")),
+    )
+
+    n_final = pd.Series(np.where(df["is_closed_cycle"], n_closed, n_active), index=df.index)
+
+    max_h = int(meta["guardrails"].get("max_horizon_days", 120))
+    n_final = pd.to_numeric(n_final, errors="coerce").fillna(min_h).astype("Int64").clip(lower=min_h, upper=max_h)
+
+    df["has_end_real"] = has_end_real
+    df["horizon_source"] = np.select(
+        [
+            df["is_closed_cycle"] & has_end_real,
+            df["is_closed_cycle"] & (~has_end_real),
+            (~df["is_closed_cycle"]) & has_end_real,
+            (~df["is_closed_cycle"]) & lag_mask,
+        ],
+        ["REAL_CLOSED", "ML1_CLOSED", "REAL_ACTIVE", "ML2_ACTIVE_LAG_EXT"],
+        default="ML2_ACTIVE",
+    )
+    df["n_harvest_days_final"] = n_final
+    df["pred_error_horizon_days"] = (
+        df["n_harvest_days_final"] - np.rint(df["n_harvest_days_pred"]).astype("Int64")
+    )
+
+    # End final coherente con inicio final + horizonte final
+    df["harvest_end_final"] = (
+        df["harvest_start_final"] + pd.to_timedelta(df["n_harvest_days_final"].fillna(min_h).astype(int) - 1, unit="D")
+    ).dt.normalize()
 
     out_factor = df[[
         "ciclo_id", "bloque_base", "variedad", "variedad_canon", "estado",
@@ -294,8 +412,21 @@ def main() -> None:
         "harvest_start_pred", "harvest_start_final",
         "n_harvest_days_pred",
         "pred_error_start_days",
+        "pred_error_horizon_days_raw",
+        "pred_error_horizon_days_model",
         "pred_error_horizon_days",
+        "n_harvest_days_ml2_model",
+        "implied_horizon_from_real_progress",
+        "tallos_real_cum_asof",
+        "real_progress_asof",
+        "expected_progress_model",
+        "progress_gap",
+        "is_lagging_progress",
         "n_harvest_days_final",
+        "is_active_cycle",
+        "is_closed_cycle",
+        "has_end_real",
+        "horizon_source",
         "harvest_end_pred",
         "harvest_end_final",
         "ml1_version",
@@ -309,6 +440,9 @@ def main() -> None:
         "as_of_date",
         "harvest_start_pred", "harvest_start_final",
         "n_harvest_days_pred", "n_harvest_days_final",
+        "pred_error_horizon_days",
+        "is_lagging_progress", "real_progress_asof", "expected_progress_model",
+        "is_active_cycle", "is_closed_cycle", "has_end_real", "horizon_source",
         "harvest_end_pred", "harvest_end_final",
         "ml1_version", "ml2_run_id", "created_at",
     ]].copy()

@@ -19,6 +19,9 @@ DATA_DIR = ROOT / "data"
 DEFAULT_INPUT = DATA_DIR / "gold" / "ml1_nn" / "ds_ml1_nn_v1.parquet"
 MODELS_DIR = DATA_DIR / "models" / "ml1_nn"
 OUT_DIR = DATA_DIR / "gold" / "ml1_nn"
+IN_FACT_PESO = DATA_DIR / "silver" / "fact_peso_tallo_real_grado_dia.parquet"
+
+_STEM_WEIGHT_CAPS_CACHE: dict[str, object] | None = None
 
 
 def _parse_args() -> argparse.Namespace:
@@ -44,6 +47,164 @@ def _safe_div(a: pd.Series, b: pd.Series, default: float = np.nan) -> pd.Series:
     return out.replace([np.inf, -np.inf], np.nan).fillna(default)
 
 
+def _weighted_quantile(values: np.ndarray, weights: np.ndarray, q: float) -> float:
+    v = np.asarray(values, dtype=np.float64)
+    w = np.asarray(weights, dtype=np.float64)
+    m = np.isfinite(v) & np.isfinite(w) & (w > 0.0)
+    if not np.any(m):
+        return np.nan
+    v = v[m]
+    w = w[m]
+    if len(v) == 0:
+        return np.nan
+    if len(v) == 1:
+        return float(v[0])
+    order = np.argsort(v)
+    v = v[order]
+    w = w[order]
+    cw = np.cumsum(w)
+    tot = float(cw[-1])
+    if not np.isfinite(tot) or tot <= 0.0:
+        return np.nan
+    q = float(np.clip(q, 0.0, 1.0))
+    return float(np.interp(q * tot, cw, v))
+
+
+def _build_stem_weight_caps() -> dict[str, object]:
+    if not IN_FACT_PESO.exists():
+        return {}
+    fact = read_parquet(IN_FACT_PESO).copy()
+    need = {"grado", "peso_tallo_real_g", "tallos_real"}
+    if not need.issubset(set(fact.columns)):
+        return {}
+
+    # Prefer reliable recent operational history.
+    if "fecha" in fact.columns:
+        fecha = pd.to_datetime(fact["fecha"], errors="coerce").dt.normalize()
+        fact = fact.loc[fecha >= pd.Timestamp("2025-05-01")].copy()
+
+    if "variedad" in fact.columns:
+        fact["variedad"] = _canon_str(fact["variedad"])
+    else:
+        fact["variedad"] = "UNKNOWN"
+    fact["grado"] = pd.to_numeric(fact["grado"], errors="coerce").round().astype("Int64")
+    fact["peso_tallo_real_g"] = pd.to_numeric(fact["peso_tallo_real_g"], errors="coerce")
+    fact["tallos_real"] = pd.to_numeric(fact["tallos_real"], errors="coerce")
+
+    # Remove extreme data glitches before computing quantile caps.
+    fact = fact.loc[
+        fact["grado"].notna()
+        & fact["peso_tallo_real_g"].notna()
+        & fact["tallos_real"].notna()
+        & (fact["tallos_real"] > 0.0)
+        & (fact["peso_tallo_real_g"] > 1.0)
+        & (fact["peso_tallo_real_g"] < 120.0)
+    ].copy()
+    if fact.empty:
+        return {}
+
+    def _caps_for_group(g: pd.DataFrame, q_lo: float = 0.05, q_hi: float = 0.95) -> tuple[float, float, int, float]:
+        x = pd.to_numeric(g["peso_tallo_real_g"], errors="coerce").to_numpy(dtype=np.float64)
+        w = pd.to_numeric(g["tallos_real"], errors="coerce").to_numpy(dtype=np.float64)
+        lo = _weighted_quantile(x, w, q_lo)
+        hi = _weighted_quantile(x, w, q_hi)
+        n = int(np.isfinite(x).sum())
+        wsum = float(np.nansum(np.where(np.isfinite(w), w, 0.0)))
+        return lo, hi, n, wsum
+
+    rows_g: list[dict] = []
+    for g, sub in fact.groupby("grado", dropna=False):
+        lo, hi, n, wsum = _caps_for_group(sub)
+        if np.isfinite(lo) and np.isfinite(hi) and (hi > lo) and n >= 120 and wsum >= 10000.0:
+            rows_g.append({"grado": int(g), "lo": float(lo), "hi": float(hi), "n": n, "wsum": wsum})
+    caps_g = pd.DataFrame(rows_g)
+
+    rows_vg: list[dict] = []
+    for (v, g), sub in fact.groupby(["variedad", "grado"], dropna=False):
+        lo, hi, n, wsum = _caps_for_group(sub)
+        if np.isfinite(lo) and np.isfinite(hi) and (hi > lo) and n >= 80 and wsum >= 5000.0:
+            rows_vg.append(
+                {"variedad": str(v), "grado": int(g), "lo": float(lo), "hi": float(hi), "n": n, "wsum": wsum}
+            )
+    caps_vg = pd.DataFrame(rows_vg)
+
+    x_all = fact["peso_tallo_real_g"].to_numpy(dtype=np.float64)
+    w_all = fact["tallos_real"].to_numpy(dtype=np.float64)
+    g_lo = _weighted_quantile(x_all, w_all, 0.02)
+    g_hi = _weighted_quantile(x_all, w_all, 0.98)
+    if not np.isfinite(g_lo) or not np.isfinite(g_hi) or g_hi <= g_lo:
+        g_lo, g_hi = 5.0, 70.0
+
+    out: dict[str, object] = {"global_lo": float(g_lo), "global_hi": float(g_hi)}
+    if not caps_g.empty:
+        out["g_lo"] = pd.Series(caps_g["lo"].to_numpy(dtype=np.float64), index=caps_g["grado"].astype("Int64"))
+        out["g_hi"] = pd.Series(caps_g["hi"].to_numpy(dtype=np.float64), index=caps_g["grado"].astype("Int64"))
+    if not caps_vg.empty:
+        idx_vg = pd.MultiIndex.from_frame(caps_vg[["variedad", "grado"]])
+        out["vg_lo"] = pd.Series(caps_vg["lo"].to_numpy(dtype=np.float64), index=idx_vg)
+        out["vg_hi"] = pd.Series(caps_vg["hi"].to_numpy(dtype=np.float64), index=idx_vg)
+    return out
+
+
+def _get_stem_weight_caps() -> dict[str, object]:
+    global _STEM_WEIGHT_CAPS_CACHE
+    if _STEM_WEIGHT_CAPS_CACHE is None:
+        _STEM_WEIGHT_CAPS_CACHE = _build_stem_weight_caps()
+    return _STEM_WEIGHT_CAPS_CACHE
+
+
+def _apply_pred_factor_peso_caps(df: pd.DataFrame) -> None:
+    if "pred_factor_peso_tallo" not in df.columns or "peso_tallo_baseline_g" not in df.columns:
+        return
+
+    caps = _get_stem_weight_caps()
+    if not caps:
+        return
+
+    base = pd.to_numeric(df["peso_tallo_baseline_g"], errors="coerce")
+    fac = pd.to_numeric(df["pred_factor_peso_tallo"], errors="coerce")
+    m = base.notna() & (base > 0.0) & fac.notna()
+    if not bool(m.any()):
+        return
+
+    grade = pd.to_numeric(df.get("grado"), errors="coerce").round().astype("Int64")
+    if "variedad_canon" in df.columns:
+        variedad = _canon_str(df["variedad_canon"]).astype("string")
+    else:
+        variedad = pd.Series(["UNKNOWN"] * len(df), index=df.index, dtype="string")
+
+    pred_w = base * fac
+
+    lo = pd.Series(np.nan, index=df.index, dtype="float64")
+    hi = pd.Series(np.nan, index=df.index, dtype="float64")
+
+    vg_lo = caps.get("vg_lo")
+    vg_hi = caps.get("vg_hi")
+    if isinstance(vg_lo, pd.Series) and isinstance(vg_hi, pd.Series) and len(vg_lo) > 0 and len(vg_hi) > 0:
+        idx = pd.MultiIndex.from_arrays([variedad, grade], names=["variedad", "grado"])
+        lo = pd.Series(idx.map(vg_lo), index=df.index, dtype="float64")
+        hi = pd.Series(idx.map(vg_hi), index=df.index, dtype="float64")
+
+    g_lo = caps.get("g_lo")
+    g_hi = caps.get("g_hi")
+    if isinstance(g_lo, pd.Series) and isinstance(g_hi, pd.Series) and len(g_lo) > 0 and len(g_hi) > 0:
+        lo = lo.where(lo.notna(), grade.map(g_lo))
+        hi = hi.where(hi.notna(), grade.map(g_hi))
+
+    lo = lo.fillna(float(caps.get("global_lo", 5.0)))
+    hi = hi.fillna(float(caps.get("global_hi", 70.0)))
+    hi = hi.where(hi >= lo, lo)
+
+    pred_w_clip = pred_w.clip(lower=lo, upper=hi)
+    fac_new = _safe_div(pred_w_clip, base, default=np.nan).clip(lower=0.60, upper=1.60)
+    m_set = m & fac_new.notna()
+    if bool(m_set.any()):
+        vals = pd.to_numeric(fac_new.loc[m_set], errors="coerce").astype(np.float32).to_numpy()
+        df.loc[m_set, "pred_factor_peso_tallo"] = vals
+        if "factor_peso_tallo_ML1" in df.columns:
+            df.loc[m_set, "factor_peso_tallo_ML1"] = vals
+
+
 def _assign_predictions(
     df: pd.DataFrame,
     yhat: np.ndarray,
@@ -67,6 +228,9 @@ def _assign_predictions(
     for alias, src in pred_alias_map.items():
         if alias not in out.columns and src in out.columns:
             out[alias] = out[src]
+
+    # Keep stem weight factors within historical agronomic ranges by grade/variety.
+    _apply_pred_factor_peso_caps(out)
     return out, pred_cols
 
 
@@ -597,11 +761,27 @@ def _rebuild_ml1_harvest_chain(df: pd.DataFrame) -> pd.DataFrame:
         )
 
     # 5) Rebuild kg/gramos and caja aliases from updated tallos.
+    # For POST rows, green mass must come from projected post stems and
+    # estimated stem weight (baseline * predicted factor).
     if "kg_verde_ref" in out.columns and "tallos_pred_ml1_grado_dia" in out.columns:
         old_kg = pd.to_numeric(df.get("kg_verde_ref"), errors="coerce")
         old_tallos_grade = pd.to_numeric(df.get("tallos_pred_ml1_grado_dia"), errors="coerce")
         kg_per_tallo = _safe_div(old_kg, old_tallos_grade, default=np.nan)
         kg_new = pd.to_numeric(out.get("tallos_pred_ml1_grado_dia"), errors="coerce") * kg_per_tallo
+
+        if bool(is_post.any()) and "tallos_post_proy" in out.columns:
+            tallos_post_new = pd.to_numeric(out.get("tallos_post_proy"), errors="coerce")
+            peso_base_g = pd.to_numeric(out.get("peso_tallo_baseline_g"), errors="coerce")
+            fac_peso = pd.to_numeric(out.get("pred_factor_peso_tallo"), errors="coerce")
+            peso_est_g = (peso_base_g * fac_peso).where(peso_base_g.notna() & fac_peso.notna(), np.nan)
+            # Fallback to previous implicit weight only when estimated weight is unavailable.
+            peso_est_g = peso_est_g.where(peso_est_g > 0.0, kg_per_tallo * 1000.0)
+            kg_post_green_new = tallos_post_new * (peso_est_g / 1000.0)
+            kg_new.loc[is_post] = kg_post_green_new.loc[is_post].where(
+                kg_post_green_new.loc[is_post].notna(),
+                kg_new.loc[is_post],
+            )
+
         out["kg_verde_ref"] = kg_new.where(kg_new.notna(), pd.to_numeric(out.get("kg_verde_ref"), errors="coerce"))
         if "gramos_verde_ref" in out.columns:
             out["gramos_verde_ref"] = pd.to_numeric(out["kg_verde_ref"], errors="coerce") * 1000.0
@@ -611,6 +791,12 @@ def _rebuild_ml1_harvest_chain(df: pd.DataFrame) -> pd.DataFrame:
                 old_c = pd.to_numeric(df.get(c), errors="coerce")
                 c_per_kg = _safe_div(old_c, old_kg, default=np.nan)
                 c_new = pd.to_numeric(out["kg_verde_ref"], errors="coerce") * c_per_kg
+                if c == "cajas_split_grado_dia" and bool(is_post.any()):
+                    cajas_post_green = pd.to_numeric(out["kg_verde_ref"], errors="coerce") / 10.0
+                    c_new.loc[is_post] = cajas_post_green.loc[is_post].where(
+                        cajas_post_green.loc[is_post].notna(),
+                        c_new.loc[is_post],
+                    )
                 out[c] = c_new.where(c_new.notna(), pd.to_numeric(out.get(c), errors="coerce"))
 
     return out

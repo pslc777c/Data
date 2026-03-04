@@ -40,7 +40,7 @@ ML2_TARGET_SPECS: list[Ml2TargetSpec] = [
         ml1_pred_col="pred_factor_tallos_dia",
         mode="log_ratio",
         corr_clip=(-1.5, 1.5),
-        final_clip=(0.20, 5.00),
+        final_clip=(0.03, 5.00),
     ),
     Ml2TargetSpec(
         corr_target="ml2_target_logratio_share_grado",

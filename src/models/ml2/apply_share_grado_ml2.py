@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from pathlib import Path
 from datetime import datetime
@@ -17,13 +17,16 @@ def _project_root() -> Path:
 ROOT = _project_root()
 DATA = ROOT / "data"
 GOLD = DATA / "gold"
+SILVER = DATA / "silver"
 EVAL = DATA / "eval" / "ml2"
 MODELS = DATA / "models" / "ml2"
 
 IN_DS = GOLD / "ml2_datasets" / "ds_share_grado_ml2_v1.parquet"
+IN_REAL = SILVER / "fact_cosecha_real_grado_dia.parquet"
 
-# Tallos totales ya corregidos por ML2 curva diaria (backtest)
+# Tallos totales ya corregidos por ML2 curva diaria
 IN_TALLOS_TOTAL_BT = EVAL / "backtest_pred_tallos_dia_ml2_final.parquet"
+IN_TALLOS_TOTAL_PROD = GOLD / "pred_tallos_dia_ml2_final.parquet"
 
 # Outputs
 OUT_FACTOR_BT = EVAL / "backtest_factor_ml2_share_grado.parquet"
@@ -35,6 +38,23 @@ OUT_FINAL_PROD = GOLD / "pred_tallos_grado_dia_ml2_final.parquet"
 
 def _canon_str(s: pd.Series) -> pd.Series:
     return s.astype(str).str.upper().str.strip()
+
+
+def _to_date(s: pd.Series) -> pd.Series:
+    return pd.to_datetime(s, errors="coerce").dt.normalize()
+
+
+def _resolve_block_base(df: pd.DataFrame) -> pd.DataFrame:
+    if "bloque_base" in df.columns:
+        df["bloque_base"] = _canon_str(df["bloque_base"])
+        return df
+    if "bloque_padre" in df.columns:
+        df["bloque_base"] = _canon_str(df["bloque_padre"])
+        return df
+    if "bloque" in df.columns:
+        df["bloque_base"] = _canon_str(df["bloque"])
+        return df
+    raise KeyError("No encuentro bloque_base/bloque_padre/bloque en fact real.")
 
 
 def _load_latest_model() -> tuple[object, dict]:
@@ -55,15 +75,31 @@ def _parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
+def _pick_tallos_total_col(df: pd.DataFrame) -> str:
+    for c in ["tallos_final_ml2_dia", "tallos_pred_ml2_dia", "tallos_ml2_dia", "tallos_pred_final", "tallos_final"]:
+        if c in df.columns:
+            return c
+    cand = [c for c in df.columns if "tallos" in c]
+    if not cand:
+        raise KeyError("No encuentro columna de tallos total ML2 diario.")
+    return cand[0]
+
+
 def main() -> None:
     args = _parse_args()
     model, meta = _load_latest_model()
+    as_of_date = (pd.Timestamp.now().normalize() - pd.Timedelta(days=1)).normalize()
 
     df = read_parquet(IN_DS).copy()
-    df["fecha"] = pd.to_datetime(df["fecha"], errors="coerce").dt.normalize()
+    df["fecha"] = _to_date(df["fecha"])
     for c in ["bloque_base", "variedad_canon", "grado", "tipo_sp", "estado", "area"]:
         if c in df.columns:
             df[c] = _canon_str(df[c])
+    if "estado" in df.columns:
+        df["is_closed_cycle"] = df["estado"].eq("CERRADO")
+    else:
+        df["is_closed_cycle"] = False
+    df["is_active_cycle"] = ~df["is_closed_cycle"]
 
     # features from meta
     for c in meta.get("num_cols", []):
@@ -85,66 +121,110 @@ def main() -> None:
     df["share_ml1"] = pd.to_numeric(df["share_grado_ml1"], errors="coerce").fillna(0.0)
     df["share_raw"] = df["share_ml1"] * df["pred_ratio_share"]
 
-    # --- RENORMALIZACIÓN (clave) por ciclo_id + fecha ---
+    # Share ML2 model (sin anclaje)
     grp = ["ciclo_id", "fecha"]
     denom = df.groupby(grp)["share_raw"].transform("sum")
-    df["share_final"] = np.where(denom > 0, df["share_raw"] / denom, df["share_ml1"])
+    df["share_ml2_model"] = np.where(denom > 0, df["share_raw"] / denom, df["share_ml1"])
 
-    # Tallos totales (backtest usa salida de ML2 curva)
-    if args.mode == "backtest":
-        tallos_total = read_parquet(IN_TALLOS_TOTAL_BT).copy()
-        tallos_total["fecha"] = pd.to_datetime(tallos_total["fecha"], errors="coerce").dt.normalize()
+    # Tallos totales diarios ML2
+    tallos_in = IN_TALLOS_TOTAL_BT if args.mode == "backtest" else IN_TALLOS_TOTAL_PROD
+    if tallos_in.exists():
+        tallos_total = read_parquet(tallos_in).copy()
+        tallos_total["fecha"] = _to_date(tallos_total["fecha"])
+        tallos_total["bloque_base"] = _canon_str(tallos_total["bloque_base"])
         if "variedad_canon" in tallos_total.columns:
             tallos_total["variedad_canon"] = _canon_str(tallos_total["variedad_canon"])
-        tallos_total["bloque_base"] = _canon_str(tallos_total["bloque_base"])
-        # buscamos columna de tallos total
-        if "tallos_pred_final" in tallos_total.columns:
-            tot_col = "tallos_pred_final"
-        elif "tallos_final" in tallos_total.columns:
-            tot_col = "tallos_final"
-        elif "tallos_pred_ml2" in tallos_total.columns:
-            tot_col = "tallos_pred_ml2"
-        else:
-            # fallback: toma primera que parezca tallos
-            cand = [c for c in tallos_total.columns if "tallos" in c and "pred" in c]
-            if not cand:
-                raise KeyError("No encuentro columna de tallos total en backtest_pred_tallos_dia_ml2_final.parquet")
-            tot_col = cand[0]
 
-        base_cols = ["ciclo_id", "fecha", "bloque_base", "variedad_canon"]
-        opt_cols = ["area", "tipo_sp", "estado"]
-
-        cols_keep = [c for c in base_cols if c in tallos_total.columns]
-        cols_keep += [c for c in opt_cols if c in tallos_total.columns]
-        cols_keep += [tot_col]
-
-        tallos_total = tallos_total[cols_keep].copy()
-        tallos_total = tallos_total.rename(columns={tot_col: "tallos_total_ml2"})
-
+        tot_col = _pick_tallos_total_col(tallos_total)
+        keep = [c for c in ["ciclo_id", "fecha", "bloque_base", "variedad_canon"] if c in tallos_total.columns] + [tot_col]
+        tallos_total = tallos_total[keep].copy().rename(columns={tot_col: "tallos_total_ml2"})
 
         df = df.merge(tallos_total, on=["ciclo_id", "fecha", "bloque_base", "variedad_canon"], how="left")
     else:
-        # PROD: usa tallos ML1 día (si aún no tienes tallos_curve_ml2 prod)
-        # Si ya tienes pred_tallos_dia_ml2_final en gold, lo cambiamos luego.
+        # fallback extremo: sumar baseline ML1
         df["tallos_total_ml2"] = df["tallos_pred_ml1_grado_dia"].groupby([df["ciclo_id"], df["fecha"]]).transform("sum")
+
+    df["tallos_total_ml2"] = pd.to_numeric(df["tallos_total_ml2"], errors="coerce").fillna(0.0)
+
+    # Real share (anclaje) por fecha+bloque+grado
+    real = read_parquet(IN_REAL).copy()
+    real["fecha"] = _to_date(real["fecha"])
+    real = _resolve_block_base(real)
+    real["grado"] = _canon_str(real["grado"])
+    real["tallos_real"] = pd.to_numeric(real["tallos_real"], errors="coerce").fillna(0.0)
+
+    real_g = (
+        real.groupby(["fecha", "bloque_base", "grado"], as_index=False)
+        .agg(tallos_real_grado=("tallos_real", "sum"))
+    )
+    real_t = (
+        real_g.groupby(["fecha", "bloque_base"], as_index=False)
+        .agg(tallos_real_dia=("tallos_real_grado", "sum"))
+    )
+    real_g = real_g.merge(real_t, on=["fecha", "bloque_base"], how="left")
+    real_g["share_real"] = np.where(real_g["tallos_real_dia"] > 0, real_g["tallos_real_grado"] / real_g["tallos_real_dia"], np.nan)
+
+    real_merge = real_g[
+        ["fecha", "bloque_base", "grado", "tallos_real_grado", "tallos_real_dia", "share_real"]
+    ].rename(columns={"tallos_real_dia": "tallos_real_dia_obs", "share_real": "share_real_obs"})
+    df = df.merge(real_merge, on=["fecha", "bloque_base", "grado"], how="left")
+
+    tallos_real_day_col = "tallos_real_dia_obs" if "tallos_real_dia_obs" in df.columns else "tallos_real_dia"
+    df["has_real_share_day"] = (
+        df["fecha"].le(as_of_date)
+        & pd.to_numeric(df[tallos_real_day_col], errors="coerce").fillna(0.0).gt(0)
+    )
+
+    share_real_col = "share_real_obs" if "share_real_obs" in df.columns else "share_real"
+    df["share_real"] = pd.to_numeric(df[share_real_col], errors="coerce")
+
+    closed_use_real = df["is_closed_cycle"] & df["has_real_share_day"]
+    active_use_real = df["is_active_cycle"] & df["has_real_share_day"]
+
+    df["share_final"] = np.select(
+        [
+            closed_use_real,
+            df["is_closed_cycle"] & (~df["has_real_share_day"]),
+            active_use_real,
+        ],
+        [
+            df[share_real_col].fillna(0.0),
+            df["share_ml1"],  # cerrado sin real: no recalcular con ML2
+            df[share_real_col].fillna(0.0),
+        ],
+        default=df["share_ml2_model"],  # activo sin real
+    )
+    df["share_source"] = np.select(
+        [
+            closed_use_real,
+            df["is_closed_cycle"] & (~df["has_real_share_day"]),
+            active_use_real,
+        ],
+        ["REAL_CLOSED", "ML1_CLOSED", "REAL_ACTIVE"],
+        default="ML2_ACTIVE",
+    )
+
+    # Renormalizacion defensiva por (ciclo_id, fecha)
+    denom_final = df.groupby(grp)["share_final"].transform("sum")
+    df["share_final"] = np.where(denom_final > 0, df["share_final"] / denom_final, df["share_ml2_model"])
 
     df["tallos_final_grado_dia"] = df["tallos_total_ml2"] * df["share_final"]
 
     df["ml2_run_id"] = meta["run_id"]
     df["created_at"] = pd.Timestamp(datetime.now()).normalize()
 
-    # Factor output
     out_factor = df[[
         "ciclo_id", "fecha", "bloque_base", "variedad_canon", "grado",
-        "share_ml1", "share_raw", "share_final",
+        "share_ml1", "share_raw", "share_ml2_model", "share_real", "share_source", "share_final",
         "pred_log_error_share", "pred_ratio_share",
+        "is_active_cycle", "is_closed_cycle",
         "ml2_run_id", "created_at"
     ]].copy()
 
-    # Final output
     out_final = df[[
         "ciclo_id", "fecha", "bloque_base", "variedad_canon", "grado",
-        "tallos_total_ml2", "share_final", "tallos_final_grado_dia",
+        "tallos_total_ml2", "share_final", "share_source", "tallos_final_grado_dia",
+        "is_active_cycle", "is_closed_cycle",
         "ml2_run_id", "created_at"
     ]].copy()
 

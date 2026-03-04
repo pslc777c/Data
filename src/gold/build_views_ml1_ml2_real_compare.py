@@ -143,6 +143,9 @@ def _common_view_base(base: pd.DataFrame, source: str, run_id: str) -> pd.DataFr
         "factor_tallos_dia",
         "share_grado",
         "factor_peso_tallo",
+        "peso_tallo_baseline_g",
+        "peso_tallo_estimado_g",
+        "peso_tallo_real_g",
         "tallos_dia",
         "tallos_grado_dia",
         "dh_dias",
@@ -618,6 +621,83 @@ def _balance_ml2_to_tallos_proy(v: pd.DataFrame, preserve_real: bool = False) ->
         v.loc[m_post, "aprovechamiento"] = _safe_div(v.loc[m_post, "kg_post"], v.loc[m_post, "kg_verde"], default=np.nan)
 
 
+def _enforce_post_green_from_tallos_peso(v: pd.DataFrame) -> None:
+    m_post = v["stage"].eq("POST")
+    if not bool(m_post.any()):
+        return
+
+    tallos = pd.to_numeric(v.get("tallos_post"), errors="coerce")
+    peso_est_g = pd.to_numeric(v.get("peso_tallo_estimado_g"), errors="coerce")
+    kg_calc = (tallos * peso_est_g / 1000.0).clip(lower=0.0)
+    m_calc = m_post & kg_calc.notna()
+    if not bool(m_calc.any()):
+        return
+
+    v.loc[m_calc, "kg_verde"] = kg_calc.loc[m_calc]
+    v.loc[m_calc, "gramos_verde"] = kg_calc.loc[m_calc] * 1000.0
+    # 1 caja verde = 10 kg
+    v.loc[m_calc, "cajas_verde"] = kg_calc.loc[m_calc] / 10.0
+
+
+def _enforce_hg_day_consistency(v: pd.DataFrame) -> None:
+    # Ensure day stems are always the sum of grade stems on the same day key.
+    if v.empty or "stage" not in v.columns:
+        return
+    if "tallos_grado_dia" not in v.columns or "tallos_dia" not in v.columns:
+        return
+
+    m_hg = v["stage"].eq("HARVEST_GRADE")
+    if not bool(m_hg.any()):
+        return
+
+    day = pd.to_numeric(v.get("day_in_harvest"), errors="coerce").round()
+    fev = pd.to_datetime(v.get("fecha_evento"), errors="coerce").dt.normalize()
+    day_key = day.where(day.notna(), fev)
+
+    h = pd.DataFrame(
+        {
+            "ciclo_id": v.loc[m_hg, "ciclo_id"].astype("string"),
+            "__day_key": day_key.loc[m_hg],
+        }
+    )
+    for c in ["bloque_base", "variedad_canon"]:
+        if c in v.columns:
+            h[c] = v.loc[m_hg, c]
+    h["tallos_grado_dia"] = pd.to_numeric(v.loc[m_hg, "tallos_grado_dia"], errors="coerce").fillna(0.0)
+
+    grp_cols = [c for c in ["ciclo_id", "__day_key", "bloque_base", "variedad_canon"] if c in h.columns]
+    if len(grp_cols) < 2:
+        return
+
+    hg_day = (
+        h.groupby(grp_cols, dropna=False, as_index=False)
+        .agg(tallos_dia_fix=("tallos_grado_dia", "sum"))
+    )
+    map_idx = pd.MultiIndex.from_frame(hg_day[grp_cols])
+    day_map = pd.Series(hg_day["tallos_dia_fix"].to_numpy(dtype=np.float64), index=map_idx)
+
+    idx_hg = pd.DataFrame({"ciclo_id": v.loc[m_hg, "ciclo_id"].astype("string"), "__day_key": day_key.loc[m_hg]})
+    for c in ["bloque_base", "variedad_canon"]:
+        if c in v.columns:
+            idx_hg[c] = v.loc[m_hg, c]
+    idx_hg_mi = pd.MultiIndex.from_frame(idx_hg[grp_cols])
+    v.loc[m_hg, "tallos_dia"] = idx_hg_mi.map(day_map).to_numpy(dtype=np.float64)
+
+    m_post = v["stage"].eq("POST")
+    if bool(m_post.any()):
+        idx_p = pd.DataFrame({"ciclo_id": v.loc[m_post, "ciclo_id"].astype("string"), "__day_key": day_key.loc[m_post]})
+        for c in ["bloque_base", "variedad_canon"]:
+            if c in v.columns:
+                idx_p[c] = v.loc[m_post, c]
+        idx_p_mi = pd.MultiIndex.from_frame(idx_p[grp_cols])
+        mapped = idx_p_mi.map(day_map)
+        old = pd.to_numeric(v.loc[m_post, "tallos_dia"], errors="coerce")
+        v.loc[m_post, "tallos_dia"] = pd.Series(mapped, index=v.loc[m_post].index).where(
+            pd.Series(mapped, index=v.loc[m_post].index).notna(),
+            old,
+        ).to_numpy(dtype=np.float64)
+
+
 def _apply_stage_masks(v: pd.DataFrame) -> None:
     m_veg = v["stage"].eq("VEG")
     m_hg = v["stage"].eq("HARVEST_GRADE")
@@ -652,10 +732,45 @@ def _apply_stage_masks(v: pd.DataFrame) -> None:
         if c in v.columns:
             v.loc[m_hg, c] = np.nan
 
-    post_na = ["factor_tallos_dia", "share_grado", "factor_peso_tallo"]
+    # Keep upstream curve/share/peso factors on POST rows for end-to-end traceability.
+    post_na = []
     for c in post_na:
         if c in v.columns:
             v.loc[m_post, c] = np.nan
+
+
+def _dedup_post_business_key(v: pd.DataFrame, prefer_real: bool) -> None:
+    if v.empty or "stage" not in v.columns:
+        return
+    m_post = v["stage"].eq("POST")
+    if not bool(m_post.any()):
+        return
+    key = [c for c in ["ciclo_id", "fecha_evento", "bloque_base", "variedad_canon", "grado", "destino"] if c in v.columns]
+    if len(key) < 2:
+        return
+    p = v.loc[m_post].copy()
+    score = pd.Series(0.0, index=p.index, dtype="float64")
+    if prefer_real:
+        if "ml2_anchor_real" in p.columns:
+            score = score + pd.to_numeric(p["ml2_anchor_real"], errors="coerce").fillna(0.0)
+        if "tallos_post_real" in p.columns:
+            score = score + pd.to_numeric(p["tallos_post_real"], errors="coerce").notna().astype(float)
+    score = score + pd.to_numeric(p.get("tallos_post"), errors="coerce").fillna(0.0)
+    p["__score"] = score
+    sort_cols = ["__score"]
+    asc = [False]
+    if "row_id" in p.columns:
+        sort_cols.append("row_id")
+        asc.append(False)
+    p = p.sort_values(sort_cols, ascending=asc, kind="mergesort")
+    p = p.drop_duplicates(subset=key, keep="first").drop(columns=["__score"])
+    out = pd.concat([v.loc[~m_post], p], ignore_index=True)
+    order_cols = [c for c in ["ciclo_id", "fecha_evento", "stage", "bloque_base", "variedad_canon", "grado", "destino"] if c in out.columns]
+    if order_cols:
+        out = out.sort_values(order_cols, kind="mergesort").reset_index(drop=True)
+    v.drop(v.index, inplace=True)
+    for c in out.columns:
+        v[c] = out[c]
 
 
 def _build_view_ml1(base: pd.DataFrame, run_id: str) -> pd.DataFrame:
@@ -713,6 +828,8 @@ def _build_view_ml1(base: pd.DataFrame, run_id: str) -> pd.DataFrame:
     v["factor_tallos_dia"] = _num(base.get("pred_factor_tallos_dia"), default=np.nan)
     v["share_grado"] = _num(base.get("pred_share_grado"), default=np.nan)
     v["factor_peso_tallo"] = _num(base.get("pred_factor_peso_tallo"), default=np.nan)
+    v["peso_tallo_baseline_g"] = _num(base.get("peso_tallo_baseline_g"), default=np.nan)
+    v["peso_tallo_estimado_g"] = v["peso_tallo_baseline_g"] * v["factor_peso_tallo"]
     v["tallos_dia"] = _num(base.get("tallos_pred_ml1_dia"), default=np.nan)
     v["tallos_grado_dia"] = _num(base.get("tallos_pred_ml1_grado_dia"), default=np.nan)
 
@@ -725,15 +842,17 @@ def _build_view_ml1(base: pd.DataFrame, run_id: str) -> pd.DataFrame:
     v["kg_verde"] = _num(base.get("kg_verde_ref"), default=np.nan)
     v["gramos_verde"] = _num(base.get("gramos_verde_ref"), default=np.nan)
     v["gramos_verde"] = v["gramos_verde"].fillna(v["kg_verde"] * 1000.0)
+    v["cajas_verde"] = _num(base.get("cajas_split_grado_dia"), default=np.nan)
+    _enforce_post_green_from_tallos_peso(v)
     prod = v["factor_hidr"] * v["factor_desp"] * v["factor_ajuste"]
     v["kg_post"] = v["kg_verde"] * prod
-    v["cajas_verde"] = _num(base.get("cajas_split_grado_dia"), default=np.nan)
     v["cajas_post"] = v["cajas_verde"] * prod
     v["aprovechamiento"] = _safe_div(v["kg_post"], v["kg_verde"], default=np.nan)
 
     # Expand missing HG/POST days to the predicted horizon.
     _expand_missing_horizon_rows(v)
     # ML1 is kept as pure model timeline (no temporal replacement).
+    _enforce_hg_day_consistency(v)
     _apply_stage_masks(v)
     _fill_cycle_totals(v)
     return v
@@ -814,6 +933,38 @@ def _build_view_ml2(base: pd.DataFrame, run_id: str, source: str) -> pd.DataFram
                 ).dt.days
             v = v.drop(columns=[c for c in ["harvest_start_obs", "harvest_end_obs", "n_harvest_days_obs"] if c in v.columns])
 
+        # Align ML2 timelines to the observed-real harvest start available from VEG labels
+        # (target_d_start), while keeping ML2 projected factors/curve behavior.
+        veg_real = base.loc[base["stage"].eq("VEG"), ["ciclo_id", "fecha_evento", "target_d_start"]].copy()
+        if not veg_real.empty:
+            veg_real = veg_real.sort_values("fecha_evento", kind="mergesort").drop_duplicates(subset=["ciclo_id"], keep="last")
+            veg_real["fecha_sp_real"] = _to_date(veg_real["fecha_evento"])
+            d_real = _num(veg_real.get("target_d_start"), default=np.nan)
+            m_d_real = pd.to_numeric(d_real, errors="coerce").notna()
+            if m_d_real.any():
+                veg_real.loc[m_d_real, "harvest_start_real"] = (
+                    pd.to_datetime(veg_real.loc[m_d_real, "fecha_sp_real"], errors="coerce")
+                    + pd.to_timedelta(np.rint(pd.to_numeric(d_real.loc[m_d_real], errors="coerce")).astype(int), unit="D")
+                ).dt.normalize()
+                hs_map = pd.Series(
+                    pd.to_datetime(veg_real["harvest_start_real"], errors="coerce").dt.normalize().to_numpy(),
+                    index=veg_real["ciclo_id"].astype("string"),
+                )
+                cid = v["ciclo_id"].astype("string")
+                hs_real = pd.to_datetime(cid.map(hs_map), errors="coerce").dt.normalize()
+                m_hs_real = hs_real.notna()
+                if m_hs_real.any():
+                    v.loc[m_hs_real, "harvest_start"] = hs_real.loc[m_hs_real]
+                    nd = pd.to_numeric(v.loc[m_hs_real, "n_harvest_days"], errors="coerce").fillna(1.0).clip(lower=1.0)
+                    v.loc[m_hs_real, "harvest_end"] = (
+                        pd.to_datetime(v.loc[m_hs_real, "harvest_start"], errors="coerce")
+                        + pd.to_timedelta(np.rint(nd).astype(int) - 1, unit="D")
+                    ).dt.normalize()
+                    v.loc[m_hs_real, "d_start"] = (
+                        pd.to_datetime(v.loc[m_hs_real, "harvest_start"], errors="coerce")
+                        - pd.to_datetime(v.loc[m_hs_real, "fecha_sp"], errors="coerce")
+                    ).dt.days
+
     v["fecha_post"] = _to_date(base.get("fecha_post_ml2")).fillna(_to_date(base["fecha_post"]))
     if "ml2_anchor_real" in base.columns:
         v["ml2_anchor_real"] = pd.to_numeric(base.get("ml2_anchor_real"), errors="coerce").fillna(0.0).gt(0.0)
@@ -832,6 +983,9 @@ def _build_view_ml2(base: pd.DataFrame, run_id: str, source: str) -> pd.DataFram
     v["factor_tallos_dia"] = _num(base.get("pred_ml2_factor_tallos_dia"), default=np.nan).fillna(_num(base.get("pred_factor_tallos_dia"), default=np.nan))
     v["share_grado"] = _num(base.get("share_grado_ml2_norm"), default=np.nan).fillna(_num(base.get("pred_ml2_share_grado"), default=np.nan)).fillna(_num(base.get("pred_share_grado"), default=np.nan))
     v["factor_peso_tallo"] = _num(base.get("pred_ml2_factor_peso_tallo"), default=np.nan).fillna(_num(base.get("pred_factor_peso_tallo"), default=np.nan))
+    v["peso_tallo_baseline_g"] = _num(base.get("peso_tallo_baseline_g"), default=np.nan)
+    v["peso_tallo_estimado_g"] = v["peso_tallo_baseline_g"] * v["factor_peso_tallo"]
+    v["peso_tallo_real_g"] = _num(base["peso_tallo_real_g"], default=np.nan) if "peso_tallo_real_g" in base.columns else np.nan
     v["tallos_dia"] = _num(base.get("tallos_pred_ml2_dia"), default=np.nan).fillna(_num(base.get("tallos_pred_ml1_dia"), default=np.nan))
     v["tallos_grado_dia"] = _num(base.get("tallos_pred_ml2_grado_dia"), default=np.nan).fillna(_num(base.get("tallos_pred_ml1_grado_dia"), default=np.nan))
 
@@ -844,14 +998,131 @@ def _build_view_ml2(base: pd.DataFrame, run_id: str, source: str) -> pd.DataFram
     v["kg_verde"] = _num(base.get("kg_verde_ml2"), default=np.nan).fillna(_num(base.get("kg_verde_ref"), default=np.nan))
     v["gramos_verde"] = _num(base.get("gramos_verde_ml2"), default=np.nan).fillna(_num(base.get("gramos_verde_ref"), default=np.nan))
     v["gramos_verde"] = v["gramos_verde"].fillna(v["kg_verde"] * 1000.0)
+    v["cajas_verde"] = _num(base.get("cajas_split_grado_dia_ml2"), default=np.nan).fillna(_num(base.get("cajas_split_grado_dia"), default=np.nan))
+    _enforce_post_green_from_tallos_peso(v)
     prod = v["factor_hidr"] * v["factor_desp"] * v["factor_ajuste"]
     v["kg_post"] = _num(base.get("kg_post_ml2"), default=np.nan).fillna(v["kg_verde"] * prod)
-    v["cajas_verde"] = _num(base.get("cajas_split_grado_dia_ml2"), default=np.nan).fillna(_num(base.get("cajas_split_grado_dia"), default=np.nan))
     v["cajas_post"] = _num(base.get("cajas_post_ml2"), default=np.nan).fillna(v["cajas_verde"] * prod)
     v["aprovechamiento"] = _safe_div(v["kg_post"], v["kg_verde"], default=np.nan)
     v["n_harvest_days"] = np.rint(pd.to_numeric(v.get("n_harvest_days"), errors="coerce")).clip(lower=1.0)
 
-    _expand_missing_horizon_rows(v)
+    # Operativo: when real is available, replace field-stage values (share/peso/tallos/green mass)
+    # with observed values, then keep projection only forward.
+    if source == "ML2_OPERATIVO":
+        hgr, _, _ = _load_real_harvest_join(base)
+        if not hgr.empty:
+            hr = hgr[
+                [
+                    "row_id",
+                    "tallos_dia_real",
+                    "tallos_grado_real",
+                    "kg_verde_grado_real",
+                    "factor_tallos_dia_real",
+                    "share_grado_real",
+                    "factor_peso_tallo_real",
+                    "peso_tallo_real_g",
+                ]
+            ].copy()
+            v = v.merge(hr, on="row_id", how="left", suffixes=("", "_hr"))
+            m_hg = v["stage"].eq("HARVEST_GRADE")
+            m_real_hg = m_hg & pd.to_numeric(v.get("ml2_anchor_real"), errors="coerce").fillna(0.0).gt(0.0)
+            if m_real_hg.any():
+                v.loc[m_real_hg, "tallos_dia"] = _num(v.loc[m_real_hg, "tallos_dia_real"], default=np.nan).astype("float32")
+                v.loc[m_real_hg, "tallos_grado_dia"] = _num(v.loc[m_real_hg, "tallos_grado_real"], default=0.0).astype("float32")
+                v.loc[m_real_hg, "kg_verde"] = _num(v.loc[m_real_hg, "kg_verde_grado_real"], default=0.0).astype("float32")
+                v.loc[m_real_hg, "gramos_verde"] = v.loc[m_real_hg, "kg_verde"] * 1000.0
+                v.loc[m_real_hg, "factor_tallos_dia"] = _num(v.loc[m_real_hg, "factor_tallos_dia_real"], default=np.nan).astype("float32")
+                v.loc[m_real_hg, "share_grado"] = _num(v.loc[m_real_hg, "share_grado_real"], default=0.0).astype("float32")
+                v.loc[m_real_hg, "factor_peso_tallo"] = _num(v.loc[m_real_hg, "factor_peso_tallo_real"], default=np.nan).astype("float32")
+                v.loc[m_real_hg, "peso_tallo_real_g"] = _num(v.loc[m_real_hg, "peso_tallo_real_g_hr"], default=np.nan).astype("float32")
+                v.loc[m_real_hg, "peso_tallo_estimado_g"] = _num(v.loc[m_real_hg, "peso_tallo_real_g"], default=np.nan).astype("float32")
+            v = v.drop(columns=[c for c in ["peso_tallo_real_g_hr"] if c in v.columns])
+
+        post_real = _load_real_post_alloc(base)
+        if not post_real.empty:
+            pr = post_real[
+                [
+                    "row_id",
+                    "dh_dias_real",
+                    "factor_hidr_real",
+                    "tallos_post_real",
+                    "kg_verde_real",
+                    "kg_post_real",
+                    "aprovechamiento_real",
+                ]
+            ].copy()
+            v = v.merge(pr, on="row_id", how="left")
+        m_post = v["stage"].eq("POST")
+        if m_post.any():
+            # Fallback "real-like" post allocation from real HG stems using destino mix.
+            key_cols = [c for c in ["ciclo_id", "fecha_evento", "bloque_base", "variedad_canon", "grado"] if c in v.columns]
+            mix_num = pd.to_numeric(v.get("tallos_post"), errors="coerce")
+            den_mix = mix_num.groupby([v[c] for c in key_cols], dropna=False).transform("sum")
+            cnt_mix = mix_num.groupby([v[c] for c in key_cols], dropna=False).transform("size").clip(lower=1)
+            mix_ratio = pd.Series(
+                np.where(den_mix > 0.0, mix_num / den_mix, 1.0 / cnt_mix.astype(float)),
+                index=v.index,
+                dtype="float64",
+            ).fillna(0.0)
+            tallos_grade_real = pd.to_numeric(v.get("tallos_grado_dia"), errors="coerce")
+            tallos_post_calc = (tallos_grade_real * mix_ratio).clip(lower=0.0)
+            peso_real = pd.to_numeric(v.get("peso_tallo_real_g"), errors="coerce")
+            peso_est = pd.to_numeric(v.get("peso_tallo_estimado_g"), errors="coerce")
+            peso_use = peso_real.where(peso_real.notna(), peso_est)
+            kg_verde_calc = (tallos_post_calc * peso_use / 1000.0).clip(lower=0.0)
+            fac_post = (
+                pd.to_numeric(v.get("factor_hidr"), errors="coerce")
+                * pd.to_numeric(v.get("factor_desp"), errors="coerce")
+                * pd.to_numeric(v.get("factor_ajuste"), errors="coerce")
+            )
+            kg_post_calc = (kg_verde_calc * fac_post).clip(lower=0.0)
+
+            # Keep real post fact when available. If real is partial by destino, allocate
+            # residual stems over missing destinos so the group total stays coherent with HG real.
+            tp_real_src = _num(v.get("tallos_post_real"), default=np.nan)
+            grp_keys = [v[c] for c in key_cols]
+            real_sum = tp_real_src.fillna(0.0).groupby(grp_keys, dropna=False).transform("sum")
+            total_target = pd.to_numeric(tallos_grade_real, errors="coerce").fillna(0.0)
+            residual = (total_target - real_sum).clip(lower=0.0)
+            m_real = tp_real_src.notna()
+            mix_missing = mix_ratio.where(~m_real, np.nan)
+            den_missing = mix_missing.groupby(grp_keys, dropna=False).transform("sum")
+            cnt_missing = (~m_real).groupby(grp_keys, dropna=False).transform("sum").clip(lower=1)
+            share_missing = pd.Series(
+                np.where(~m_real, np.where(den_missing > 0.0, mix_missing / den_missing, 1.0 / cnt_missing.astype(float)), np.nan),
+                index=v.index,
+                dtype="float64",
+            ).fillna(0.0)
+            tp_real_adj = tp_real_src.where(m_real, residual * share_missing)
+
+            kg_verde_real_src = _num(v.get("kg_verde_real"), default=np.nan)
+            kg_post_real_src = _num(v.get("kg_post_real"), default=np.nan)
+            # Green mass in operativo must come from field-real stems and stem weight.
+            kg_verde_adj = (tp_real_adj * peso_use / 1000.0).clip(lower=0.0)
+            kg_verde_adj = kg_verde_adj.where(kg_verde_adj.notna(), kg_verde_real_src)
+            kg_post_adj = kg_post_real_src.where(kg_post_real_src.notna(), (kg_verde_adj * fac_post).clip(lower=0.0))
+
+            v["tallos_post_real"] = tp_real_adj
+            v["kg_verde_real"] = kg_verde_adj
+            v["kg_post_real"] = kg_post_adj
+            v["factor_hidr_real"] = _num(v.get("factor_hidr_real"), default=np.nan).fillna(_num(v.get("factor_hidr"), default=np.nan))
+            v["dh_dias_real"] = _num(v.get("dh_dias_real"), default=np.nan).fillna(_num(v.get("dh_dias"), default=np.nan))
+            v["aprovechamiento_real"] = _safe_div(v["kg_post_real"], v["kg_verde_real"], default=np.nan)
+
+            m_post_use = m_post & pd.to_numeric(v.get("tallos_post_real"), errors="coerce").notna()
+            if m_post_use.any():
+                v.loc[m_post_use, "dh_dias"] = _num(v.loc[m_post_use, "dh_dias_real"], default=np.nan).astype("float32")
+                v.loc[m_post_use, "factor_hidr"] = _num(v.loc[m_post_use, "factor_hidr_real"], default=np.nan).astype("float32")
+                v.loc[m_post_use, "tallos_post"] = _num(v.loc[m_post_use, "tallos_post_real"], default=np.nan).astype("float32")
+                v.loc[m_post_use, "kg_verde"] = _num(v.loc[m_post_use, "kg_verde_real"], default=np.nan).astype("float32")
+                v.loc[m_post_use, "gramos_verde"] = v.loc[m_post_use, "kg_verde"] * 1000.0
+                v.loc[m_post_use, "kg_post"] = _num(v.loc[m_post_use, "kg_post_real"], default=np.nan).astype("float32")
+                v.loc[m_post_use, "aprovechamiento"] = _num(v.loc[m_post_use, "aprovechamiento_real"], default=np.nan).astype("float32")
+
+    # For operativo we rely on ML2 output rows as-is to avoid creating synthetic
+    # null rows in future days. Global/puro keep horizon expansion for comparability.
+    if source != "ML2_OPERATIVO":
+        _expand_missing_horizon_rows(v)
     _realign_temporal_axis(v)
     # Keep only rows inside valid ML2 harvest horizon.
     m_hg_post = v["stage"].isin(["HARVEST_GRADE", "POST"])
@@ -861,6 +1132,22 @@ def _build_view_ml2(base: pd.DataFrame, run_id: str, source: str) -> pd.DataFram
     m_keep = (~m_hg_post) | (fev.notna() & day.notna() & (day >= 1) & ((~nd.notna()) | (day <= nd)))
     v = v.loc[m_keep].copy()
     _balance_ml2_to_tallos_proy(v, preserve_real=source == "ML2_OPERATIVO")
+    _dedup_post_business_key(v, prefer_real=source == "ML2_OPERATIVO")
+    # After mass-balance scaling, keep exact post-real facts when available.
+    if source == "ML2_OPERATIVO":
+        m_post = v["stage"].eq("POST")
+        m_post_fact = m_post & pd.to_numeric(v.get("kg_post_real"), errors="coerce").notna()
+        if m_post_fact.any():
+            v.loc[m_post_fact, "kg_post"] = _num(v.loc[m_post_fact, "kg_post_real"], default=np.nan)
+            m_t = m_post_fact & pd.to_numeric(v.get("tallos_post_real"), errors="coerce").notna()
+            if m_t.any():
+                v.loc[m_t, "tallos_post"] = _num(v.loc[m_t, "tallos_post_real"], default=np.nan)
+            m_g = m_post_fact & pd.to_numeric(v.get("kg_verde_real"), errors="coerce").notna()
+            if m_g.any():
+                v.loc[m_g, "kg_verde"] = _num(v.loc[m_g, "kg_verde_real"], default=np.nan)
+                v.loc[m_g, "gramos_verde"] = v.loc[m_g, "kg_verde"] * 1000.0
+            v.loc[m_post_fact, "aprovechamiento"] = _safe_div(v.loc[m_post_fact, "kg_post"], v.loc[m_post_fact, "kg_verde"], default=np.nan)
+    _enforce_hg_day_consistency(v)
     _apply_stage_masks(v)
     _fill_cycle_totals(v)
     return v
@@ -899,8 +1186,25 @@ def _build_view_real(base: pd.DataFrame, run_id: str) -> pd.DataFrame:
 
     # Harvest-grade real rows.
     if not hgr.empty:
-        hr = hgr[["row_id", "tallos_dia_real", "tallos_grado_real", "kg_verde_grado_real", "factor_tallos_dia_real", "share_grado_real", "factor_peso_tallo_real"]].copy()
-        v = v.merge(hr, on="row_id", how="left")
+        hr = hgr[
+            [
+                "row_id",
+                "tallos_dia_real",
+                "tallos_grado_real",
+                "kg_verde_grado_real",
+                "factor_tallos_dia_real",
+                "share_grado_real",
+                "factor_peso_tallo_real",
+                "peso_tallo_baseline_g",
+                "peso_tallo_real_g",
+            ]
+        ].copy()
+        v = v.merge(hr, on="row_id", how="left", suffixes=("", "_hr"))
+        for c in ["peso_tallo_baseline_g", "peso_tallo_real_g"]:
+            c_hr = f"{c}_hr"
+            if c_hr in v.columns:
+                v[c] = _num(v.get(c_hr), default=np.nan).fillna(_num(v.get(c), default=np.nan))
+                v = v.drop(columns=[c_hr])
         v["tallos_dia"] = _num(v.get("tallos_dia_real"), default=np.nan)
         v["tallos_grado_dia"] = _num(v.get("tallos_grado_real"), default=np.nan)
         v["kg_verde"] = _num(v.get("kg_verde_grado_real"), default=np.nan)
@@ -908,6 +1212,9 @@ def _build_view_real(base: pd.DataFrame, run_id: str) -> pd.DataFrame:
         v["factor_tallos_dia"] = _num(v.get("factor_tallos_dia_real"), default=np.nan)
         v["share_grado"] = _num(v.get("share_grado_real"), default=np.nan)
         v["factor_peso_tallo"] = _num(v.get("factor_peso_tallo_real"), default=np.nan)
+        v["peso_tallo_baseline_g"] = _num(v.get("peso_tallo_baseline_g"), default=np.nan)
+        v["peso_tallo_real_g"] = _num(v.get("peso_tallo_real_g"), default=np.nan)
+        v["peso_tallo_estimado_g"] = v["peso_tallo_real_g"]
 
     # day_in_harvest / rel_pos in real.
     dhr = _num(base.get("dia_rel_cosecha_real"), default=np.nan)
@@ -979,6 +1286,8 @@ def _build_view_real(base: pd.DataFrame, run_id: str) -> pd.DataFrame:
     m_keep = (~m_hg_post) | ((~hs.notna() | (fev >= hs)) & (~he.notna() | (fev <= he)))
     v = v.loc[m_keep].copy()
 
+    _dedup_post_business_key(v, prefer_real=True)
+    _enforce_hg_day_consistency(v)
     _apply_stage_masks(v)
     _fill_cycle_totals(v)
     return v

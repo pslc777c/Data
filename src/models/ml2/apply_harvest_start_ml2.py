@@ -199,12 +199,15 @@ def main() -> None:
     ciclo["bloque_base"] = _canon_str(ciclo["bloque_base"])
     ciclo["fecha_sp"] = _to_date(ciclo["fecha_sp"])
     ciclo["fecha_inicio_cosecha"] = _to_date(ciclo["fecha_inicio_cosecha"])
+    ciclo["fecha_fin_cosecha"] = _to_date(ciclo["fecha_fin_cosecha"])
+    ciclo["estado"] = _canon_str(ciclo["estado"])
 
     grid["bloque_base"] = _canon_str(grid["bloque_base"])
     grid["variedad_canon"] = _canon_str(grid["variedad_canon"])
 
     head = _build_cycle_header(grid)
     df = ciclo.merge(head, on="ciclo_id", how="inner", suffixes=("", "_ml1"))
+    df["estado"] = _canon_str(df["estado"])
 
     # -----------------------
     # Define as_of_date
@@ -254,18 +257,69 @@ def main() -> None:
     feature_cols = meta["num_cols"] + meta["cat_cols"]
     X = df[feature_cols].copy()
 
-    pred_err = model.predict(X).astype(float)
+    pred_err_raw = pd.to_numeric(pd.Series(model.predict(X)), errors="coerce").fillna(0.0).astype(float)
     lo, hi = meta["guardrails"]["clip_error_days"]
-    pred_err = np.clip(pred_err, lo, hi)
+    pred_err_clip = np.clip(pred_err_raw, lo, hi)
+    pred_err_days = np.rint(pred_err_clip).astype("Int64")
 
-    df["pred_error_start_days"] = pred_err
-    df["harvest_start_final"] = df["harvest_start_pred"] + pd.to_timedelta(df["pred_error_start_days"], unit="D")
+    # Prediccion ML2 "pura" (sin anclaje) en dias enteros.
+    df["pred_error_start_days_raw"] = pred_err_raw
+    df["pred_error_start_days_model"] = pred_err_days
+    df["harvest_start_ml2_model"] = (
+        df["harvest_start_pred"] + pd.to_timedelta(df["pred_error_start_days_model"].fillna(0).astype(int), unit="D")
+    ).dt.normalize()
+
+    # Activo/cerrado: cerrado no se recalcula con ML2.
+    is_closed = (
+        df["estado"].eq("CERRADO")
+        | (df["fecha_fin_cosecha"].notna() & (df["fecha_fin_cosecha"] <= df["as_of_date"]))
+    )
+    df["is_closed_cycle"] = is_closed
+    df["is_active_cycle"] = ~is_closed
+
+    # Anclaje por real valido.
+    has_real_start_valid = (
+        df["fecha_inicio_cosecha"].notna()
+        & (df["fecha_inicio_cosecha"] >= df["fecha_sp"])
+        & (df["fecha_inicio_cosecha"] <= df["as_of_date"])
+    )
+    df["has_start_real"] = has_real_start_valid
+
+    # Cerrado: usar real (o fallback ML1), Activo: real si existe, si no ML2.
+    start_closed = np.where(has_real_start_valid, df["fecha_inicio_cosecha"], df["harvest_start_pred"])
+    start_active = np.where(has_real_start_valid, df["fecha_inicio_cosecha"], df["harvest_start_ml2_model"])
+    df["harvest_start_final"] = np.where(df["is_closed_cycle"], start_closed, start_active)
+    df["harvest_start_final"] = _to_date(df["harvest_start_final"])
+
+    df["start_source"] = np.select(
+        [
+            df["is_closed_cycle"] & has_real_start_valid,
+            df["is_closed_cycle"] & (~has_real_start_valid),
+            (~df["is_closed_cycle"]) & has_real_start_valid,
+        ],
+        ["REAL_CLOSED", "ML1_CLOSED", "REAL_ACTIVE"],
+        default="ML2_MODEL_ACTIVE",
+    )
+
+    # Error final efectivo vs baseline ML1 (consumido por Horizon ML2).
+    df["pred_error_start_days"] = (
+        (df["harvest_start_final"] - df["harvest_start_pred"]).dt.days.astype("Int64")
+    )
 
     out_factor = df[[
         "ciclo_id", "bloque_base", "variedad", "variedad_canon", "estado",
         "fecha_sp", "fecha_inicio_cosecha",
         "as_of_date",
-        "harvest_start_pred", "pred_error_start_days", "harvest_start_final",
+        "harvest_start_pred",
+        "pred_error_start_days_raw",
+        "pred_error_start_days_model",
+        "pred_error_start_days",
+        "harvest_start_ml2_model",
+        "has_start_real",
+        "is_active_cycle",
+        "is_closed_cycle",
+        "start_source",
+        "harvest_start_final",
         "ml1_version",
     ]].copy()
 
@@ -275,7 +329,9 @@ def main() -> None:
     out_final = out_factor[[
         "ciclo_id", "bloque_base", "variedad_canon", "fecha_sp",
         "as_of_date",
-        "harvest_start_pred", "harvest_start_final",
+        "harvest_start_pred", "harvest_start_ml2_model", "harvest_start_final",
+        "pred_error_start_days", "has_start_real",
+        "is_active_cycle", "is_closed_cycle", "start_source",
         "ml1_version", "ml2_run_id", "created_at",
     ]].copy()
 

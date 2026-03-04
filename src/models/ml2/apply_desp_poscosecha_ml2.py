@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from pathlib import Path
 from datetime import datetime
@@ -18,14 +18,15 @@ def _project_root() -> Path:
 ROOT = _project_root()
 DATA = ROOT / "data"
 GOLD = DATA / "gold"
+SILVER = DATA / "silver"
 EVAL = DATA / "eval" / "ml2"
 MODELS = DATA / "models" / "ml2"
 
 IN_UNIVERSE = GOLD / "pred_poscosecha_ml2_hidr_grado_dia_bloque_destino_final.parquet"
+IN_REAL_MA = SILVER / "dim_mermas_ajuste_fecha_post_destino.parquet"
 
 OUT_FACTOR = EVAL / "backtest_factor_ml2_desp_poscosecha.parquet"
 OUT_FINAL = GOLD / "pred_poscosecha_ml2_desp_grado_dia_bloque_destino_final.parquet"
-
 
 NUM_COLS = ["dow", "month", "weekofyear"]
 CAT_COLS = ["destino", "grado"]
@@ -44,7 +45,7 @@ def _canon_int(s: pd.Series) -> pd.Series:
 
 
 def _as_of_date() -> pd.Timestamp:
-    return (pd.Timestamp.now().normalize() - pd.Timedelta(days=1))
+    return pd.Timestamp.now().normalize() - pd.Timedelta(days=1)
 
 
 def _latest_model(prefix: str) -> Path:
@@ -85,6 +86,9 @@ def main(mode: str = "backtest", model_file: str | None = None) -> None:
     df["fecha"] = _to_date(df["fecha"])
     df = df.loc[df["fecha"].notna()].copy()
 
+    if mode == "backtest":
+        df = df.loc[df["fecha"] <= as_of].copy()
+
     df["destino"] = _canon_str(df["destino"])
     if pd.api.types.is_numeric_dtype(df["grado"]):
         df["grado"] = _canon_int(df["grado"])
@@ -102,7 +106,6 @@ def main(mode: str = "backtest", model_file: str | None = None) -> None:
     df["month"] = df["fecha_post_pred_used"].dt.month.astype("Int64")
     df["weekofyear"] = df["fecha_post_pred_used"].dt.isocalendar().week.astype("Int64")
 
-    # ensure cols exist
     for c in NUM_COLS:
         if c not in df.columns:
             df[c] = pd.NA
@@ -116,17 +119,36 @@ def main(mode: str = "backtest", model_file: str | None = None) -> None:
     pipe = load(model_path)
 
     pred = pd.to_numeric(pd.Series(pipe.predict(X)), errors="coerce")
-    # target era log_ratio_desp_clipped => pred es log_ratio_desp_pred
     df["log_ratio_desp_pred"] = pred
 
-    # factor_desp_final = factor_desp_ml1 * exp(pred)
     df["factor_desp_ml1"] = pd.to_numeric(df[fd_ml1], errors="coerce")
-    df["factor_desp_final_raw"] = df["factor_desp_ml1"] * np.exp(df["log_ratio_desp_pred"].astype(float))
+    df["factor_desp_final_model"] = df["factor_desp_ml1"] * np.exp(df["log_ratio_desp_pred"].astype(float))
+    df["factor_desp_final_model"] = pd.to_numeric(df["factor_desp_final_model"], errors="coerce").clip(lower=0.05, upper=1.00)
 
-    # clip factor final
-    df["factor_desp_final"] = pd.to_numeric(df["factor_desp_final_raw"], errors="coerce").clip(lower=0.05, upper=1.00)
+    # Real override por fecha_post + destino
+    real = read_parquet(IN_REAL_MA).copy()
+    real.columns = [str(c).strip() for c in real.columns]
+    real["fecha_post"] = _to_date(real["fecha_post"])
+    real["destino"] = _canon_str(real["destino"])
+    real["factor_desp_real"] = pd.to_numeric(real["factor_desp"], errors="coerce")
 
-    # outputs
+    real_key = (
+        real.groupby(["fecha_post", "destino"], dropna=False, as_index=False)
+        .agg(factor_desp_real=("factor_desp_real", "median"))
+    )
+
+    df = df.merge(
+        real_key,
+        left_on=["fecha_post_pred_used", "destino"],
+        right_on=["fecha_post", "destino"],
+        how="left",
+    )
+
+    has_desp_real = df["factor_desp_real"].notna() & df["fecha_post_pred_used"].notna() & (df["fecha_post_pred_used"] <= as_of)
+    df["desp_source"] = np.where(has_desp_real, "REAL", "ML2_MODEL")
+    df["factor_desp_final"] = np.where(has_desp_real, df["factor_desp_real"], df["factor_desp_final_model"])
+    df["factor_desp_final"] = pd.to_numeric(df["factor_desp_final"], errors="coerce").clip(lower=0.05, upper=1.00)
+
     EVAL.mkdir(parents=True, exist_ok=True)
     GOLD.mkdir(parents=True, exist_ok=True)
 
@@ -140,6 +162,9 @@ def main(mode: str = "backtest", model_file: str | None = None) -> None:
             "destino",
             "factor_desp_ml1",
             "log_ratio_desp_pred",
+            "factor_desp_final_model",
+            "factor_desp_real",
+            "desp_source",
             "factor_desp_final",
         ]
     ].copy()
@@ -147,16 +172,19 @@ def main(mode: str = "backtest", model_file: str | None = None) -> None:
     fac["as_of_date"] = as_of
     fac["created_at"] = pd.Timestamp(datetime.now()).normalize()
 
-    write_parquet(fac, OUT_FACTOR)
+    if mode == "backtest":
+        write_parquet(fac, OUT_FACTOR)
+        print(f"[OK] BACKTEST factor: {OUT_FACTOR} rows={len(fac):,}")
+
+    df["as_of_date"] = as_of
+    df["created_at"] = pd.Timestamp(datetime.now()).normalize()
     write_parquet(df, OUT_FINAL)
 
-    print(f"[OK] BACKTEST factor: {OUT_FACTOR} rows={len(fac):,}")
-    print(f"[OK] BACKTEST final : {OUT_FINAL} rows={len(df):,}")
+    print(f"[OK] {mode.upper()} final : {OUT_FINAL} rows={len(df):,}")
     print(f"     model={model_path.name} as_of_date={as_of.date()}")
 
 
 if __name__ == "__main__":
-    # argparse minimalista (sin depender de fire/typer)
     import argparse
 
     ap = argparse.ArgumentParser()

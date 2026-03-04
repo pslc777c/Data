@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import argparse
 import json
@@ -18,18 +18,17 @@ def _project_root() -> Path:
 ROOT = _project_root()
 DATA = ROOT / "data"
 GOLD = DATA / "gold"
+SILVER = DATA / "silver"
 EVAL = DATA / "eval" / "ml2"
 MODELS_DIR = DATA / "models" / "ml2"
 
 IN_UNIVERSE = GOLD / "pred_poscosecha_ml2_desp_grado_dia_bloque_destino_final.parquet"
+IN_REAL_MA = SILVER / "dim_mermas_ajuste_fecha_post_destino.parquet"
 
 OUT_FINAL = GOLD / "pred_poscosecha_ml2_ajuste_grado_dia_bloque_destino_final.parquet"
 OUT_BACKTEST = EVAL / "backtest_factor_ml2_ajuste_poscosecha.parquet"
 
 
-# ----------------------------
-# TZ-safe helpers
-# ----------------------------
 def _to_naive_utc(ts: pd.Timestamp) -> pd.Timestamp:
     if ts.tzinfo is None:
         return ts
@@ -37,9 +36,8 @@ def _to_naive_utc(ts: pd.Timestamp) -> pd.Timestamp:
 
 
 def _as_of_date_naive() -> pd.Timestamp:
-    # regla: hoy-1
     t = _to_naive_utc(pd.Timestamp.utcnow())
-    return (t.normalize() - pd.Timedelta(days=1))
+    return t.normalize() - pd.Timedelta(days=1)
 
 
 def _to_date_naive(s: pd.Series) -> pd.Series:
@@ -82,12 +80,11 @@ def _latest_model(prefix: str = "ajuste_poscosecha_ml2_") -> Path:
         raise FileNotFoundError(f"No existe {MODELS_DIR}")
     files = sorted(MODELS_DIR.glob(f"{prefix}*.pkl"))
     if not files:
-        raise FileNotFoundError(f"No encontré modelos en {MODELS_DIR} con prefijo {prefix}")
+        raise FileNotFoundError(f"No encontre modelos en {MODELS_DIR} con prefijo {prefix}")
     return files[-1]
 
 
 def _meta_path_from_model(model_path: Path) -> Path:
-    # ✅ NO usar with_suffix("_meta.json") (inválido)
     p = str(model_path)
     if p.endswith(".pkl"):
         return Path(p.replace(".pkl", "_meta.json"))
@@ -111,7 +108,6 @@ def main(mode: str = "backtest", model_file: str | None = None) -> None:
     if "fecha" not in df.columns or "destino" not in df.columns:
         raise ValueError("Universe debe tener fecha y destino.")
 
-    # ✅ tz-safe
     df["fecha"] = _to_date_naive(df["fecha"])
     df["destino"] = _canon_str(df["destino"])
 
@@ -121,59 +117,91 @@ def main(mode: str = "backtest", model_file: str | None = None) -> None:
     ajuste_ml1_col = _resolve_ajuste_ml1(df)
     df[ajuste_ml1_col] = pd.to_numeric(df[ajuste_ml1_col], errors="coerce")
 
-    # ✅ filtro as_of consistente
     df = df[df["fecha"].notna()].copy()
+    if mode.lower() == "backtest":
+        df = df[df["fecha"] <= as_of].copy()
 
-    # features calendario
     df["dow"] = df[fecha_post_col].dt.dayofweek.astype("Int64")
     df["month"] = df[fecha_post_col].dt.month.astype("Int64")
     df["weekofyear"] = df[fecha_post_col].dt.isocalendar().week.astype("Int64")
     df["w"] = _weight_series(df)
 
-    # columnas para el modelo
-    NUM_COLS = ["dow", "month", "weekofyear"]
-    CAT_COLS = ["destino"]
+    num_cols = ["dow", "month", "weekofyear"]
+    cat_cols = ["destino"]
     if "grado" in df.columns:
-        CAT_COLS.append("grado")
+        cat_cols.append("grado")
         df["grado"] = pd.to_numeric(df["grado"], errors="coerce").astype("Int64")
 
-    for c in NUM_COLS:
+    for c in num_cols:
         if c not in df.columns:
             df[c] = np.nan
-    for c in CAT_COLS:
+    for c in cat_cols:
         if c not in df.columns:
             df[c] = "UNKNOWN"
 
-    X = df[NUM_COLS + CAT_COLS]
+    X = df[num_cols + cat_cols]
 
     model = load(model_path)
     pred = model.predict(X)
 
-    # delta: log(real/ml1)
     clip = float(meta.get("clip_delta", 1.2))
     df["delta_log_ajuste_ml2_raw"] = pd.to_numeric(pd.Series(pred), errors="coerce")
     df["delta_log_ajuste_ml2"] = df["delta_log_ajuste_ml2_raw"].clip(lower=-clip, upper=clip)
 
-    # aplicar: ajuste_final = ajuste_ml1 * exp(delta)
     base = pd.to_numeric(df[ajuste_ml1_col], errors="coerce").replace(0, np.nan)
-    df["factor_ajuste_final"] = (base * np.exp(df["delta_log_ajuste_ml2"])).astype(float)
+    df["factor_ajuste_final_model"] = (base * np.exp(df["delta_log_ajuste_ml2"])).astype(float)
 
-    # guardarraíles
     clip_factor = meta.get("clip_factor_apply", [0.50, 2.00])
     try:
         lo, hi = float(clip_factor[0]), float(clip_factor[1])
     except Exception:
         lo, hi = 0.50, 2.00
-    df["factor_ajuste_final"] = df["factor_ajuste_final"].clip(lower=lo, upper=hi)
+    df["factor_ajuste_final_model"] = df["factor_ajuste_final_model"].clip(lower=lo, upper=hi)
+
+    # Real override por fecha_post + destino
+    real = read_parquet(IN_REAL_MA).copy()
+    real.columns = [str(c).strip() for c in real.columns]
+    real["fecha_post"] = _to_date_naive(real["fecha_post"])
+    real["destino"] = _canon_str(real["destino"])
+
+    if "factor_ajuste" in real.columns:
+        real["factor_ajuste_real"] = pd.to_numeric(real["factor_ajuste"], errors="coerce")
+    elif "ajuste" in real.columns:
+        # ajuste es el inverso de factor_ajuste en este proyecto
+        aj = pd.to_numeric(real["ajuste"], errors="coerce")
+        real["factor_ajuste_real"] = np.where(aj > 0, 1.0 / aj, np.nan)
+    else:
+        raise KeyError("No encuentro factor_ajuste ni ajuste en dim_mermas_ajuste_fecha_post_destino.")
+
+    real_key = (
+        real.groupby(["fecha_post", "destino"], dropna=False, as_index=False)
+        .agg(factor_ajuste_real=("factor_ajuste_real", "median"))
+    )
+
+    df["fecha_post_pred_used"] = df[fecha_post_col]
+    df = df.merge(
+        real_key,
+        left_on=["fecha_post_pred_used", "destino"],
+        right_on=["fecha_post", "destino"],
+        how="left",
+    )
+
+    has_real = df["factor_ajuste_real"].notna() & df["fecha_post_pred_used"].notna() & (df["fecha_post_pred_used"] <= as_of)
+    df["ajuste_source"] = np.where(has_real, "REAL", "ML2_MODEL")
+    df["factor_ajuste_final"] = np.where(has_real, df["factor_ajuste_real"], df["factor_ajuste_final_model"])
+    df["factor_ajuste_final"] = pd.to_numeric(df["factor_ajuste_final"], errors="coerce").clip(lower=lo, upper=hi)
 
     df["ml2_ajuste_model_file"] = model_path.name
     df["ml2_ajuste_clip_delta"] = clip
     df["as_of_date"] = as_of
     df["created_at"] = pd.Timestamp.utcnow()
 
-    # backtest factor output + final output
     if mode.lower() == "backtest":
-        bt_cols = ["fecha", fecha_post_col, "destino", "delta_log_ajuste_ml2", "w", "as_of_date", "created_at"]
+        bt_cols = [
+            "fecha", "fecha_post_pred_used", "destino", "delta_log_ajuste_ml2", "w",
+            "factor_ajuste_final_model", "factor_ajuste_real", "ajuste_source", "factor_ajuste_final",
+            "as_of_date", "created_at"
+        ]
         if "grado" in df.columns:
             bt_cols.insert(3, "grado")
         bt = df[bt_cols].copy()
@@ -182,8 +210,8 @@ def main(mode: str = "backtest", model_file: str | None = None) -> None:
         print(f"[OK] BACKTEST factor: {OUT_BACKTEST} rows={len(bt):,}")
 
     write_parquet(df, OUT_FINAL)
-    print(f"[OK] BACKTEST final : {OUT_FINAL} rows={len(df):,}")
-    print(f"     model={model_path.name} clip_delta=±{clip} as_of_date={as_of.date()}")
+    print(f"[OK] {mode.upper()} final : {OUT_FINAL} rows={len(df):,}")
+    print(f"     model={model_path.name} clip_delta=+-{clip} as_of_date={as_of.date()}")
 
 
 if __name__ == "__main__":

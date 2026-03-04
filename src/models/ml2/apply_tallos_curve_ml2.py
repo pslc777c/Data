@@ -62,6 +62,10 @@ def _parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
+def _as_of_date_today_minus_1() -> pd.Timestamp:
+    return (pd.Timestamp.now().normalize() - pd.Timedelta(days=1)).normalize()
+
+
 def _resolve_block_base(df: pd.DataFrame) -> pd.DataFrame:
     if "bloque_base" in df.columns:
         df["bloque_base"] = _canon_str(df["bloque_base"])
@@ -75,12 +79,69 @@ def _resolve_block_base(df: pd.DataFrame) -> pd.DataFrame:
     raise KeyError("No encuentro columna de bloque: bloque_base / bloque_padre / bloque")
 
 
+def _anchor_curve_by_real(df: pd.DataFrame, as_of_date: pd.Timestamp) -> pd.DataFrame:
+    """
+    Ancla curva diaria a real:
+    - fechas con real observado (<= as_of): usa real
+    - fechas futuras: reproyecta ML2 manteniendo el total ML2 por ciclo
+    """
+    out_parts: list[pd.DataFrame] = []
+    d = df.sort_values(["ciclo_id", "fecha"]).copy()
+    d["tallos_ml2_model_dia"] = pd.to_numeric(d["tallos_ml2_model_dia"], errors="coerce").fillna(0.0)
+    d["tallos_real_dia"] = pd.to_numeric(d["tallos_real_dia"], errors="coerce")
+    d["estado"] = _canon_str(d["estado"]) if "estado" in d.columns else "ACTIVO"
+    d["is_closed_cycle"] = d["estado"].eq("CERRADO")
+    d["is_active_cycle"] = ~d["is_closed_cycle"]
+    d["has_real_observed_row"] = d["fecha"].le(as_of_date) & d["tallos_real_dia"].notna()
+
+    for _, g in d.groupby("ciclo_id", sort=False):
+        g = g.copy()
+        is_closed = bool(g["is_closed_cycle"].iloc[0]) if "is_closed_cycle" in g.columns else False
+        obs = g["has_real_observed_row"]
+        has_any = bool(obs.any())
+
+        if is_closed:
+            real_full = pd.to_numeric(g["tallos_real_dia"], errors="coerce").fillna(0.0)
+            g["curve_anchor_has_real"] = bool((real_full > 0).any())
+            g["curve_anchor_total_target"] = float(real_full.sum())
+            g["curve_anchor_real_observed"] = float(real_full.sum())
+            g["curve_anchor_scale"] = 0.0
+            g["tallos_final_ml2_dia"] = real_full
+            g["curve_source"] = "REAL_CLOSED"
+        else:
+            total_target = float(g["tallos_ml2_model_dia"].sum())
+            real_observed = float(g.loc[obs, "tallos_real_dia"].fillna(0.0).sum())
+            remaining_target = max(total_target - real_observed, 0.0)
+            remaining_model = float(g.loc[~obs, "tallos_ml2_model_dia"].sum())
+            scale_future = (remaining_target / remaining_model) if remaining_model > 0 else 0.0
+
+            g["curve_anchor_has_real"] = has_any
+            g["curve_anchor_total_target"] = total_target
+            g["curve_anchor_real_observed"] = real_observed
+            g["curve_anchor_scale"] = 1.0
+            g["tallos_final_ml2_dia"] = g["tallos_ml2_model_dia"]
+            g["curve_source"] = "ML2_MODEL_ACTIVE"
+
+            if has_any:
+                g.loc[obs, "tallos_final_ml2_dia"] = g.loc[obs, "tallos_real_dia"].fillna(0.0)
+                g.loc[~obs, "curve_anchor_scale"] = scale_future
+                g.loc[~obs, "tallos_final_ml2_dia"] = g.loc[~obs, "tallos_ml2_model_dia"] * scale_future
+                g.loc[obs, "curve_source"] = "REAL_ACTIVE"
+                g.loc[~obs, "curve_source"] = "ML2_REPROJECTED_ACTIVE"
+
+        out_parts.append(g)
+
+    return pd.concat(out_parts, ignore_index=True) if out_parts else d
+
+
 def main() -> None:
     args = _parse_args()
     model, meta = _load_latest_model()
 
+    as_of_date = _as_of_date_today_minus_1()
     grid = read_parquet(IN_GRID_ML2).copy()
     pred = read_parquet(IN_PRED_ML1).copy()
+    real = read_parquet(IN_REAL).copy()
     clima = read_parquet(IN_CLIMA).copy()
 
     # --- GRID ---
@@ -123,19 +184,14 @@ def main() -> None:
     df = df.merge(pred_agg, on=["fecha", "bloque_base", "variedad_canon"], how="left")
     df["tallos_pred_ml1_dia"] = pd.to_numeric(df["tallos_pred_ml1_dia"], errors="coerce").fillna(0.0)
 
-    # --- REAL (solo en backtest; para KPIs posteriores) ---
-    if args.mode == "backtest":
-        real = read_parquet(IN_REAL).copy()
-        real["fecha"] = _to_date(real["fecha"])
-        real = _resolve_block_base(real)
-        real_agg = (
-            real.groupby(["fecha", "bloque_base"], as_index=False)
-                .agg(tallos_real_dia=("tallos_real", "sum"))
-        )
-        df = df.merge(real_agg, on=["fecha", "bloque_base"], how="left")
-        df["tallos_real_dia"] = pd.to_numeric(df["tallos_real_dia"], errors="coerce").fillna(0.0)
-    else:
-        df["tallos_real_dia"] = 0.0  # placeholder
+    # --- REAL (si existe y ya ocurrio <= as_of, ancla/reproyecta) ---
+    real["fecha"] = _to_date(real["fecha"])
+    real = _resolve_block_base(real)
+    real_agg = (
+        real.groupby(["fecha", "bloque_base"], as_index=False)
+        .agg(tallos_real_dia=("tallos_real", "sum"))
+    )
+    df = df.merge(real_agg, on=["fecha", "bloque_base"], how="left")
 
     # --- CLIMA diario ---
     clima["fecha"] = _to_date(clima["fecha"])
@@ -174,8 +230,11 @@ def main() -> None:
     df["pred_log_error"] = pred_log
     df["pred_ratio"] = np.exp(df["pred_log_error"])
 
-    # Final prediction
-    df["tallos_final_ml2_dia"] = df["tallos_pred_ml1_dia"] * df["pred_ratio"]
+    # Prediccion ML2 pura
+    df["tallos_ml2_model_dia"] = df["tallos_pred_ml1_dia"] * df["pred_ratio"]
+
+    # Anclaje por real + reproyeccion de remanente
+    df = _anchor_curve_by_real(df, as_of_date=as_of_date)
 
     # Versioning
     df["ml2_run_id"] = meta["run_id"]
@@ -184,7 +243,11 @@ def main() -> None:
     cols_factor = [
         "ciclo_id", "fecha", "bloque_base", "variedad_canon",
         "tallos_pred_ml1_dia", "tallos_real_dia",
-        "pred_log_error", "pred_ratio", "tallos_final_ml2_dia",
+        "pred_log_error", "pred_ratio",
+        "tallos_ml2_model_dia", "tallos_final_ml2_dia",
+        "curve_source", "curve_anchor_has_real", "curve_anchor_scale",
+        "curve_anchor_total_target", "curve_anchor_real_observed",
+        "is_active_cycle", "is_closed_cycle",
         "ml2_run_id", "created_at",
     ]
     if "ml1_version" in df.columns:
@@ -194,7 +257,10 @@ def main() -> None:
 
     cols_final = [
         "ciclo_id", "fecha", "bloque_base", "variedad_canon",
-        "tallos_pred_ml1_dia", "tallos_final_ml2_dia",
+        "tallos_pred_ml1_dia", "tallos_real_dia",
+        "tallos_ml2_model_dia", "tallos_final_ml2_dia",
+        "curve_source", "curve_anchor_has_real", "curve_anchor_scale",
+        "is_active_cycle", "is_closed_cycle",
         "ml2_run_id", "created_at",
     ]
     if "ml1_version" in df.columns:

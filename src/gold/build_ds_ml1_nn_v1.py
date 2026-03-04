@@ -40,7 +40,9 @@ TARGET_COLS = [
 TARGET_CLIPS: dict[str, tuple[float, float]] = {
     "target_d_start": (0.0, 180.0),
     "target_n_harvest_days": (1.0, 180.0),
-    "target_factor_tallos_dia": (0.20, 5.00),
+    # Lower floor derived from empirical distribution of raw factor_tallos_dia
+    # to avoid hard truncation bias at 0.20 in low-activity days.
+    "target_factor_tallos_dia": (0.03, 5.00),
     "target_share_grado": (0.00, 1.00),
     "target_factor_peso_tallo": (0.60, 1.60),
     "target_dh_dias": (0.0, 30.0),
@@ -391,7 +393,9 @@ def _build_stage_harvest_day() -> pd.DataFrame:
         df["sp_doy"] = fsp.dt.dayofyear
         df["sp_dow"] = fsp.dt.dayofweek
 
-    df["target_factor_tallos_dia"] = pd.to_numeric(df.get("factor_tallos_dia_clipped"), errors="coerce")
+    fac_raw = pd.to_numeric(df.get("factor_tallos_dia"), errors="coerce")
+    fac_clip = pd.to_numeric(df.get("factor_tallos_dia_clipped"), errors="coerce")
+    df["target_factor_tallos_dia"] = fac_raw.where(fac_raw.notna(), fac_clip)
 
     out = _with_common_schema(df, stage="HARVEST_DAY", row_source="features_curva_cosecha_bloque_dia")
     return out
@@ -455,6 +459,7 @@ def _build_stage_harvest_grade() -> pd.DataFrame:
         "fecha",
         "bloque_base",
         "variedad_canon",
+        "factor_tallos_dia",
         "factor_tallos_dia_clipped",
         "tallos_pred_baseline_dia",
     ]
@@ -502,6 +507,7 @@ def _build_stage_harvest_grade() -> pd.DataFrame:
 
     _coalesce(df, "peso_tallo_baseline_g", ["peso_tallo_baseline_g", "peso_tallo_baseline_g_peso"])
     _coalesce(df, "tallos_pred_baseline_dia", ["tallos_pred_baseline_dia", "tallos_pred_baseline_dia_curva"])
+    _coalesce(df, "factor_tallos_dia", ["factor_tallos_dia", "factor_tallos_dia_curva"])
     _coalesce(df, "factor_tallos_dia_clipped", ["factor_tallos_dia_clipped", "factor_tallos_dia_clipped_curva"])
     _coalesce(df, "tallos_pred_baseline_grado_dia", ["tallos_pred_baseline_grado_dia", "tallos_pred_baseline_grado_dia_kg"])
     _coalesce(df, "tallos_pred_ml1_grado_dia", ["tallos_pred_ml1_grado_dia", "tallos_pred_ml1_grado_dia_kg"])
@@ -548,7 +554,9 @@ def _build_stage_harvest_grade() -> pd.DataFrame:
     df = df.merge(pr, on=key, how="left")
 
     df["target_share_grado"] = pd.to_numeric(df.get("share_grado_real"), errors="coerce")
-    df["target_factor_tallos_dia"] = pd.to_numeric(df.get("factor_tallos_dia_clipped"), errors="coerce")
+    fac_raw = pd.to_numeric(df.get("factor_tallos_dia"), errors="coerce")
+    fac_clip = pd.to_numeric(df.get("factor_tallos_dia_clipped"), errors="coerce")
+    df["target_factor_tallos_dia"] = fac_raw.where(fac_raw.notna(), fac_clip)
     fac_from_feat = pd.to_numeric(df.get("factor_peso_tallo_clipped"), errors="coerce")
     fac_from_real = np.where(
         pd.to_numeric(df["peso_tallo_baseline_g"], errors="coerce").fillna(0.0) > 0.0,

@@ -20,6 +20,7 @@ GOLD = DATA / "gold"
 # INPUTS
 IN_CAJAS_GRADO = GOLD / "pred_cajas_grado_dia_ml2_full.parquet"
 IN_MIX = SILVER / "dim_mix_proceso_semana.parquet"
+IN_REAL_HD = SILVER / "fact_hidratacion_real_post_grado_destino.parquet"
 
 # OUTPUTS (ML2 seed)
 OUT_GD_BD = GOLD / "pred_poscosecha_ml2_seed_grado_dia_bloque_destino.parquet"
@@ -182,6 +183,41 @@ def main(as_of_date: str | None = None) -> None:
         supply[wcol] = np.where(ws.notna(), supply[wcol] / ws, def_w[wcol])
 
     # -------------------------
+    # 3b) Distribucion real por destino (balanza 1)
+    #     Si ya hay real para (fecha_cosecha, grado), reemplaza mix semanal.
+    # -------------------------
+    real_hd = read_parquet(IN_REAL_HD).copy()
+    real_hd.columns = [str(c).strip() for c in real_hd.columns]
+    _require(real_hd, ["fecha_cosecha", "fecha_post", "grado", "destino", "tallos"], "fact_hidratacion_real_post_grado_destino")
+
+    real_hd["fecha_cosecha"] = _to_date(real_hd["fecha_cosecha"])
+    real_hd["fecha_post"] = _to_date(real_hd["fecha_post"])
+    real_hd["grado"] = _canon_int(real_hd["grado"])
+    real_hd["destino"] = _canon_str(real_hd["destino"])
+    real_hd["tallos"] = pd.to_numeric(real_hd["tallos"], errors="coerce").fillna(0.0)
+
+    # Solo info ya disponible al as_of operativo.
+    real_hd = real_hd.loc[real_hd["fecha_post"].notna() & (real_hd["fecha_post"] <= as_of)].copy()
+    real_hd = real_hd.loc[real_hd["fecha_cosecha"].notna()].copy()
+
+    real_mix = (
+        real_hd.groupby(["fecha_cosecha", "grado", "destino"], dropna=False, as_index=False)
+        .agg(tallos_real_dest=("tallos", "sum"))
+        .rename(columns={"fecha_cosecha": "fecha"})
+    )
+    real_tot = (
+        real_mix.groupby(["fecha", "grado"], dropna=False, as_index=False)
+        .agg(tallos_real_total=("tallos_real_dest", "sum"))
+    )
+    real_mix = real_mix.merge(real_tot, on=["fecha", "grado"], how="left")
+    real_mix["w_dest_real"] = np.where(
+        real_mix["tallos_real_total"] > 0,
+        real_mix["tallos_real_dest"] / real_mix["tallos_real_total"],
+        np.nan,
+    )
+    real_mix["has_real_dest"] = real_mix["w_dest_real"].notna()
+
+    # -------------------------
     # 4) Split por destino (mass-balance exact)
     # -------------------------
     chunks = []
@@ -189,11 +225,23 @@ def main(as_of_date: str | None = None) -> None:
         sub = supply[key_supply + ["Semana_Ventas", "cajas_campo_ml2_grado_dia", wcol]].copy()
         sub = sub.rename(columns={wcol: "w_dest"})
         sub["destino"] = dest
+        sub = sub.merge(
+            real_mix[["fecha", "grado", "destino", "w_dest_real", "has_real_dest"]],
+            on=["fecha", "grado", "destino"],
+            how="left",
+        )
+        sub["w_dest"] = np.where(sub["has_real_dest"].fillna(False), sub["w_dest_real"], sub["w_dest"])
+        sub["share_source"] = np.where(sub["has_real_dest"].fillna(False), "REAL_BALANZA1", "MIX_SEMANAL")
         sub["cajas_split_grado_dia"] = sub["cajas_campo_ml2_grado_dia"].astype(float) * sub["w_dest"].astype(float)
         chunks.append(sub)
 
     split = pd.concat(chunks, ignore_index=True)
     split["destino"] = _canon_str(split["destino"])
+
+    # Renormalizacion exacta por llave de supply para evitar drift por faltantes de destinos reales.
+    wsum = split.groupby(key_supply, dropna=False)["w_dest"].transform("sum").replace(0, np.nan)
+    split["w_dest"] = np.where(wsum.notna(), split["w_dest"] / wsum, split["w_dest"])
+    split["cajas_split_grado_dia"] = split["cajas_campo_ml2_grado_dia"].astype(float) * split["w_dest"].astype(float)
 
     chk = (
         split.groupby(key_supply, dropna=False, as_index=False)
@@ -221,6 +269,8 @@ def main(as_of_date: str | None = None) -> None:
             "grado",
             "Semana_Ventas",
             "destino",
+            "w_dest",
+            "share_source",
             "cajas_campo_ml2_grado_dia",
             "cajas_split_grado_dia",
             "as_of_date",

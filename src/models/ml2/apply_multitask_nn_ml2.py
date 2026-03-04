@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from common.io import read_parquet, write_parquet
+from models.ml1.apply_multitask_nn_ml1 import _apply_pred_factor_peso_caps
 from models.ml2.ml2_nn_common import final_from_ml1_and_corr
 
 
@@ -335,15 +336,31 @@ def _predict_ml2_targets(
         orig = str(s["original_target"])
         pred_col = str(s["ml1_pred_col"])
         mode = str(s["mode"])
+        corr_lo, corr_hi = float(s["corr_clip"][0]), float(s["corr_clip"][1])
         lo, hi = float(s["final_clip"][0]), float(s["final_clip"][1])
         key = orig.replace("target_", "", 1)
 
         gamma = float(shrinkage.get(corr_target, 1.0))
         corr_raw = ycorr_raw[:, i].astype(np.float32)
-        corr_adj = (corr_raw * gamma).astype(np.float32)
+        corr_adj = np.clip(corr_raw * gamma, corr_lo, corr_hi).astype(np.float32)
         y_base = _num_series(df_state, pred_col, default=np.nan).to_numpy(dtype=np.float32)
         y_final = final_from_ml1_and_corr(y_ml1=y_base, corr=corr_adj, mode=mode)
-        y_final = np.clip(y_final, lo, hi).astype(np.float32)
+        if key == "share_grado":
+            # Share is normalized by day later; clipping to 1.0 here collapses grade shape.
+            y_final = np.clip(y_final, max(lo, 0.0), np.inf).astype(np.float32)
+            # Guardrail: keep ML1 share if ML2 correction worsens labeled fit.
+            if orig in df_state.columns and f"mask_{orig}" in df_state.columns:
+                y_true = pd.to_numeric(df_state[orig], errors="coerce").to_numpy(dtype=np.float32)
+                w = pd.to_numeric(df_state[f"mask_{orig}"], errors="coerce").fillna(0.0).to_numpy(dtype=np.float32)
+                m_eval = (w > 0.0) & np.isfinite(y_true) & np.isfinite(y_base) & np.isfinite(y_final)
+                if bool(m_eval.any()):
+                    mae_base = float(np.mean(np.abs(y_true[m_eval] - y_base[m_eval])))
+                    mae_new = float(np.mean(np.abs(y_true[m_eval] - y_final[m_eval])))
+                    if np.isfinite(mae_base) and np.isfinite(mae_new) and (mae_new > mae_base):
+                        y_final = y_base.copy()
+                        corr_adj = np.zeros_like(corr_adj, dtype=np.float32)
+        else:
+            y_final = np.clip(y_final, lo, hi).astype(np.float32)
 
         ycorr_adj[:, i] = corr_adj
         corr_raw_map[corr_target] = corr_raw
@@ -447,7 +464,9 @@ def _apply_dynamic_links(df_state: pd.DataFrame, ref: dict) -> None:
 
     share_norm = pd.Series(np.nan, index=df_state.index, dtype="float64")
     if is_hg.any():
-        s_use = _num_series(df_state.loc[is_hg], "pred_share_grado", default=np.nan).fillna(0.0)
+        s_pred = _num_series(df_state.loc[is_hg], "pred_share_grado", default=np.nan)
+        s_base = _num_series(df_state.loc[is_hg], "share_grado_baseline", default=np.nan)
+        s_use = s_pred.where(s_pred.notna(), s_base).fillna(0.0)
         grp_cols = [c for c in ["ciclo_id", "fecha_evento", "bloque_base", "variedad_canon"] if c in df_state.columns]
         if grp_cols:
             grp_idx = [df_state.loc[is_hg, c] for c in grp_cols]
@@ -460,6 +479,12 @@ def _apply_dynamic_links(df_state: pd.DataFrame, ref: dict) -> None:
         share_norm.loc[is_hg] = pd.to_numeric(pd.Series(sn, index=df_state.loc[is_hg].index), errors="coerce").fillna(0.0)
 
     df_state["share_grado_ml2_norm"] = share_norm
+    # Feed normalized share back into the iterative state to keep consistency.
+    if "pred_share_grado" in df_state.columns and is_hg.any():
+        df_state.loc[is_hg, "pred_share_grado"] = pd.to_numeric(
+            df_state.loc[is_hg, "share_grado_ml2_norm"],
+            errors="coerce",
+        ).fillna(0.0)
 
     if "tallos_pred_ml1_grado_dia" in df_state.columns and is_hg.any():
         tallos_hg = (
@@ -662,6 +687,7 @@ def _run_dynamic_inference(
         )
         pred = _anchor_predictions_with_real(df_state=df_state, specs=specs, pred_final=pred, anchor_real=anchor_real)
         _inject_predictions_into_features(df_state=df_state, specs=specs, pred_final=pred)
+        _apply_pred_factor_peso_caps(df_state)
         _apply_dynamic_links(df_state=df_state, ref=ref)
 
         if prev_pred:
@@ -780,7 +806,7 @@ def _build_dynamic_output(
 
     fev_orig = pd.to_datetime(df_out.get("fecha_evento"), errors="coerce").dt.normalize()
     real_start_map = pd.Series(dtype="datetime64[ns]")
-    if layer_name == "ML2_GLOBAL":
+    if layer_name in {"ML2_GLOBAL", "ML2_OPERATIVO"}:
         m_real_hg_start = (
             (
                 pd.to_numeric(df_out.get("mask_target_factor_tallos_dia"), errors="coerce").fillna(0.0).gt(0.0)
@@ -830,6 +856,15 @@ def _build_dynamic_output(
             )
             day_ord_row = pd.Series(row_idx.map(ord_map), index=df_out.index, dtype="float64")
             day_ml2 = day_ml2.where(day_ml2 >= 1.0, day_ord_row)
+
+    # Operativo/global with real anchor: anything before first observed real HG date
+    # is out-of-window and must not be re-timed into duplicated day 1 rows.
+    if bool(anchor_real) and not real_start_map.empty:
+        cid_row = df_out["ciclo_id"].astype("string")
+        rs_row = cid_row.map(real_start_map)
+        m_before_rs = is_chain & rs_row.notna() & fev_orig.notna() & (fev_orig < rs_row)
+        if bool(m_before_rs.any()):
+            day_ml2.loc[m_before_rs] = np.nan
 
     # ML2 global: if real harvest already started, reset day index from first real day.
     if layer_name == "ML2_GLOBAL" and not real_start_map.empty:
@@ -937,6 +972,10 @@ def _build_dynamic_output(
         m_outside = is_chain & hs_row.notna() & day_ml2.isna()
         if bool(m_outside.any()):
             fev_ml2.loc[m_outside] = pd.NaT
+    if layer_name == "ML2_OPERATIVO" and bool(anchor_real):
+        m_outside_op = is_chain & hs_row.notna() & day_ml2.isna()
+        if bool(m_outside_op.any()):
+            fev_ml2.loc[m_outside_op] = pd.NaT
     if layer_name == "ML2_GLOBAL" and not real_start_map.empty:
         cid_row = df_out["ciclo_id"].astype("string")
         rs_row = cid_row.map(real_start_map)
@@ -1065,7 +1104,7 @@ def _build_dynamic_output(
                 .groupby(day_key, dropna=False, as_index=False)
                 .agg(tallos_dia_new=("tallos_pred_ml2_grado_dia", "sum"))
             )
-            # If tail is unnaturally flat, apply a light decay while preserving cycle mass.
+            # If tail is unnaturally flat, apply a decay while preserving cycle mass.
             date_col_local = day_key[1] if len(day_key) >= 2 else None
             grp_shape_cols = [c for c in day_key if c != date_col_local]
             if date_col_local and grp_shape_cols:
@@ -1075,19 +1114,31 @@ def _build_dynamic_output(
                     vals = pd.to_numeric(gg["tallos_dia_new"], errors="coerce").fillna(0.0).to_numpy(dtype=np.float64)
                     n = len(vals)
                     if n >= 5:
+                        adj = vals.copy()
                         tail_n = int(min(6, n))
-                        tail = vals[-tail_n:]
+                        tail = adj[-tail_n:]
                         t_mean = float(np.nanmean(tail))
                         t_std = float(np.nanstd(tail))
                         if t_mean > 1e-9 and (t_std / t_mean) < 0.01:
-                            adj = vals.copy()
                             decay = np.linspace(1.00, 0.90, tail_n, dtype=np.float64)
                             adj[-tail_n:] = tail * decay
-                            s0 = float(np.nansum(vals))
-                            s1 = float(np.nansum(adj))
-                            if s0 > 0.0 and s1 > 0.0:
-                                adj = adj * (s0 / s1)
-                            vals = np.clip(adj, 0.0, np.inf)
+                        # Also break explicit repeated flat endings (>=3 equal tail days).
+                        last_v = float(adj[-1])
+                        tol_flat = max(1e-6, abs(last_v) * 1e-4)
+                        run_len = 1
+                        for k in range(n - 2, -1, -1):
+                            if abs(float(adj[k]) - last_v) <= tol_flat:
+                                run_len += 1
+                            else:
+                                break
+                        if run_len >= 3:
+                            decay2 = np.linspace(1.00, 0.80, run_len, dtype=np.float64)
+                            adj[-run_len:] = adj[-run_len:] * decay2
+                        s0 = float(np.nansum(vals))
+                        s1 = float(np.nansum(adj))
+                        if s0 > 0.0 and s1 > 0.0:
+                            adj = adj * (s0 / s1)
+                        vals = np.clip(adj, 0.0, np.inf)
                     gg["tallos_dia_new"] = vals
                     adj_parts.append(gg)
                 if adj_parts:
@@ -1189,6 +1240,225 @@ def _dedup_harvest_grade_rows(df_out: pd.DataFrame, prefer_real: bool) -> pd.Dat
     order_cols = [c for c in ["ciclo_id", date_col, "stage", "bloque_base", "variedad_canon", "grado", "destino"] if c in out.columns]
     if order_cols:
         out = out.sort_values(order_cols, kind="mergesort").reset_index(drop=True)
+    return out
+
+
+def _dedup_post_rows(df_out: pd.DataFrame, prefer_real: bool) -> pd.DataFrame:
+    if df_out.empty or "stage" not in df_out.columns:
+        return df_out
+    st = _stage_series(df_out)
+    is_post = st.eq("POST")
+    if not bool(is_post.any()):
+        return df_out
+
+    date_col = "fecha_evento_ml2" if "fecha_evento_ml2" in df_out.columns else ("fecha_evento" if "fecha_evento" in df_out.columns else None)
+    key = [c for c in ["ciclo_id", date_col, "bloque_base", "variedad_canon", "grado", "destino"] if c and c in df_out.columns]
+    if len(key) < 2:
+        return df_out
+
+    post = df_out.loc[is_post].copy()
+    score = pd.Series(0.0, index=post.index, dtype="float64")
+    if prefer_real:
+        for c in [
+            "mask_target_dh_dias",
+            "mask_target_factor_hidr",
+            "mask_target_factor_desp",
+            "mask_target_factor_ajuste",
+        ]:
+            if c in post.columns:
+                score = score + pd.to_numeric(post[c], errors="coerce").fillna(0.0)
+        if "ml2_anchor_real" in post.columns:
+            score = score + pd.to_numeric(post["ml2_anchor_real"], errors="coerce").fillna(0.0)
+    if "ml2_row_generated" in post.columns:
+        score = score + (1.0 - pd.to_numeric(post["ml2_row_generated"], errors="coerce").fillna(0.0).clip(lower=0.0, upper=1.0))
+    if "share_block_post" in post.columns:
+        score = score + pd.to_numeric(post["share_block_post"], errors="coerce").fillna(0.0)
+    post["__score"] = score
+
+    sort_cols = ["__score"]
+    asc = [False]
+    if "row_id" in post.columns:
+        # Prefer latest row when keys collide after temporal retiming.
+        sort_cols.append("row_id")
+        asc.append(False)
+    post = post.sort_values(sort_cols, ascending=asc, kind="mergesort")
+    post = post.drop_duplicates(subset=key, keep="first").drop(columns=["__score"])
+
+    out = pd.concat([df_out.loc[~is_post], post], ignore_index=True)
+    order_cols = [c for c in ["ciclo_id", date_col, "stage", "bloque_base", "variedad_canon", "grado", "destino"] if c in out.columns]
+    if order_cols:
+        out = out.sort_values(order_cols, kind="mergesort").reset_index(drop=True)
+    return out
+
+
+def _rebalance_after_expansion(df_out: pd.DataFrame, preserve_real: bool) -> pd.DataFrame:
+    if df_out.empty or "stage" not in df_out.columns:
+        return df_out
+    out = df_out.copy()
+    st = _stage_series(out)
+    is_hg = st.eq("HARVEST_GRADE")
+    is_post = st.eq("POST")
+    if not bool(is_hg.any()):
+        return out
+    if "tallos_proy" not in out.columns or "tallos_pred_ml2_grado_dia" not in out.columns:
+        return out
+
+    m_hg_real = pd.Series(False, index=out.index)
+    if preserve_real and "ml2_anchor_real" in out.columns:
+        m_hg_real = is_hg & pd.to_numeric(out["ml2_anchor_real"], errors="coerce").fillna(0.0).gt(0.0)
+    m_hg_scale = is_hg & ~m_hg_real
+
+    cyc = (
+        out.loc[is_hg, ["ciclo_id", "tallos_pred_ml2_grado_dia", "tallos_proy"]]
+        .groupby("ciclo_id", dropna=False, as_index=False)
+        .agg(
+            tallos_pred_total=("tallos_pred_ml2_grado_dia", "sum"),
+            tallos_target=("tallos_proy", "max"),
+        )
+    )
+    cyc["tallos_pred_total"] = pd.to_numeric(cyc["tallos_pred_total"], errors="coerce").fillna(0.0)
+    cyc["tallos_target"] = pd.to_numeric(cyc["tallos_target"], errors="coerce").fillna(0.0)
+    if preserve_real:
+        cyc_real = (
+            out.loc[m_hg_real, ["ciclo_id", "tallos_pred_ml2_grado_dia"]]
+            .groupby("ciclo_id", dropna=False, as_index=False)
+            .agg(tallos_real_fixed=("tallos_pred_ml2_grado_dia", "sum"))
+        )
+        cyc_pred = (
+            out.loc[m_hg_scale, ["ciclo_id", "tallos_pred_ml2_grado_dia"]]
+            .groupby("ciclo_id", dropna=False, as_index=False)
+            .agg(tallos_pred_scalable=("tallos_pred_ml2_grado_dia", "sum"))
+        )
+        cyc = cyc.merge(cyc_real, on="ciclo_id", how="left").merge(cyc_pred, on="ciclo_id", how="left")
+        cyc["tallos_real_fixed"] = pd.to_numeric(cyc["tallos_real_fixed"], errors="coerce").fillna(0.0)
+        cyc["tallos_pred_scalable"] = pd.to_numeric(cyc["tallos_pred_scalable"], errors="coerce").fillna(0.0)
+        cyc["tallos_target_eff"] = np.maximum(
+            cyc["tallos_target"],
+            cyc["tallos_real_fixed"] + cyc["tallos_pred_scalable"],
+        )
+        cyc["tallos_remaining"] = (cyc["tallos_target_eff"] - cyc["tallos_real_fixed"]).clip(lower=0.0)
+        cyc["scale_hg"] = np.where(
+            cyc["tallos_pred_scalable"] > 0.0,
+            cyc["tallos_remaining"] / cyc["tallos_pred_scalable"],
+            1.0,
+        )
+    else:
+        cyc["scale_hg"] = np.where(
+            cyc["tallos_target"] > 0.0,
+            np.where(cyc["tallos_pred_total"] > 0.0, cyc["tallos_target"] / cyc["tallos_pred_total"], 1.0),
+            1.0,
+        )
+
+    scale_map = pd.Series(cyc["scale_hg"].to_numpy(dtype=np.float64), index=cyc["ciclo_id"].astype("string"))
+    srow = out["ciclo_id"].astype("string").map(scale_map).fillna(1.0)
+    out["scale_ml2_mass"] = srow
+
+    for c in ["tallos_pred_ml2_grado_dia", "tallos_pred_ml2_dia"]:
+        if c in out.columns:
+            out.loc[m_hg_scale, c] = pd.to_numeric(out.loc[m_hg_scale, c], errors="coerce") * srow.loc[m_hg_scale]
+    if bool(is_post.any()):
+        cols_post = [
+            "tallos_post_ml2_proy",
+            "kg_verde_ml2",
+            "gramos_verde_ml2",
+            "cajas_split_grado_dia_ml2",
+            "cajas_ml1_grado_dia_ml2",
+            "cajas_post_seed_ml2",
+            "kg_post_ml2",
+            "cajas_post_ml2",
+        ]
+        for c in cols_post:
+            if c in out.columns:
+                out.loc[is_post, c] = pd.to_numeric(out.loc[is_post, c], errors="coerce") * srow.loc[is_post]
+
+    # ML2 puro/global: avoid repeated flat tail days by applying a light day-level taper.
+    if not preserve_real:
+        date_col = "fecha_evento_ml2" if "fecha_evento_ml2" in out.columns else ("fecha_evento" if "fecha_evento" in out.columns else None)
+        if date_col and "tallos_pred_ml2_grado_dia" in out.columns:
+            hg_day = (
+                out.loc[is_hg, ["ciclo_id", date_col, "tallos_pred_ml2_grado_dia"]]
+                .copy()
+            )
+            hg_day[date_col] = _to_date(hg_day[date_col])
+            hg_day["tallos_pred_ml2_grado_dia"] = pd.to_numeric(hg_day["tallos_pred_ml2_grado_dia"], errors="coerce").fillna(0.0)
+            hg_day = hg_day.dropna(subset=[date_col])
+            hg_day = (
+                hg_day.groupby(["ciclo_id", date_col], dropna=False, as_index=False)
+                .agg(day_total=("tallos_pred_ml2_grado_dia", "sum"))
+                .sort_values(["ciclo_id", date_col], kind="mergesort")
+            )
+            if not hg_day.empty:
+                factor_parts: list[pd.DataFrame] = []
+                for cid, g in hg_day.groupby("ciclo_id", dropna=False, sort=False):
+                    gg = g.sort_values(date_col, kind="mergesort").copy()
+                    vals = pd.to_numeric(gg["day_total"], errors="coerce").fillna(0.0).to_numpy(dtype=np.float64)
+                    n = len(vals)
+                    if n < 4:
+                        continue
+                    last_v = float(vals[-1])
+                    tol = max(1e-6, abs(last_v) * 1e-4)
+                    run_len = 1
+                    for k in range(n - 2, -1, -1):
+                        if abs(float(vals[k]) - last_v) <= tol:
+                            run_len += 1
+                        else:
+                            break
+                    if run_len < 3:
+                        continue
+                    f = np.ones(n, dtype=np.float64)
+                    f[-run_len:] = np.linspace(1.00, 0.80, run_len, dtype=np.float64)
+                    s0 = float(np.nansum(vals))
+                    s1 = float(np.nansum(vals * f))
+                    if s0 > 0.0 and s1 > 0.0:
+                        f = f * (s0 / s1)
+                    gg["tail_factor"] = f
+                    factor_parts.append(gg[["ciclo_id", date_col, "tail_factor"]])
+
+                if factor_parts:
+                    fday = pd.concat(factor_parts, ignore_index=True)
+                    fidx = pd.MultiIndex.from_frame(fday[["ciclo_id", date_col]])
+                    fmap = pd.Series(pd.to_numeric(fday["tail_factor"], errors="coerce").to_numpy(dtype=np.float64), index=fidx)
+                    ridx = pd.MultiIndex.from_arrays(
+                        [out["ciclo_id"], _to_date(out[date_col])],
+                        names=["ciclo_id", date_col],
+                    )
+                    frow = pd.Series(ridx.map(fmap), index=out.index, dtype="float64").fillna(1.0)
+                    if "tallos_pred_ml2_grado_dia" in out.columns:
+                        out.loc[is_hg, "tallos_pred_ml2_grado_dia"] = (
+                            pd.to_numeric(out.loc[is_hg, "tallos_pred_ml2_grado_dia"], errors="coerce") * frow.loc[is_hg]
+                        )
+                    if "tallos_pred_ml2_dia" in out.columns:
+                        m_chain = is_hg | is_post
+                        out.loc[m_chain, "tallos_pred_ml2_dia"] = (
+                            pd.to_numeric(out.loc[m_chain, "tallos_pred_ml2_dia"], errors="coerce") * frow.loc[m_chain]
+                        )
+                    for c in ["tallos_post_ml2_proy", "kg_verde_ml2", "gramos_verde_ml2", "cajas_split_grado_dia_ml2", "cajas_ml1_grado_dia_ml2", "cajas_post_seed_ml2", "kg_post_ml2", "cajas_post_ml2"]:
+                        if c in out.columns:
+                            out.loc[is_post, c] = pd.to_numeric(out.loc[is_post, c], errors="coerce") * frow.loc[is_post]
+
+        # Final consistency: day total must equal sum of grade rows for that day.
+        if "tallos_pred_ml2_dia" in out.columns and date_col:
+            day_key = [c for c in ["ciclo_id", date_col, "bloque_base", "variedad_canon"] if c in out.columns]
+            if day_key:
+                hg_day = (
+                    out.loc[is_hg, day_key + ["tallos_pred_ml2_grado_dia"]]
+                    .copy()
+                )
+                hg_day[date_col] = _to_date(hg_day[date_col])
+                hg_day["tallos_pred_ml2_grado_dia"] = pd.to_numeric(hg_day["tallos_pred_ml2_grado_dia"], errors="coerce").fillna(0.0)
+                hg_day = (
+                    hg_day.groupby(day_key, dropna=False, as_index=False)
+                    .agg(tallos_dia_new=("tallos_pred_ml2_grado_dia", "sum"))
+                )
+                idx_map = pd.MultiIndex.from_frame(hg_day[day_key])
+                map_day = pd.Series(pd.to_numeric(hg_day["tallos_dia_new"], errors="coerce").to_numpy(dtype=np.float64), index=idx_map)
+                idx_hg = pd.MultiIndex.from_frame(out.loc[is_hg, day_key])
+                out.loc[is_hg, "tallos_pred_ml2_dia"] = idx_hg.map(map_day).to_numpy(dtype=np.float64)
+                if bool(is_post.any()):
+                    idx_post = pd.MultiIndex.from_frame(out.loc[is_post, day_key])
+                    old_post = pd.to_numeric(out.loc[is_post, "tallos_pred_ml2_dia"], errors="coerce")
+                    mapped_post = pd.Series(idx_post.map(map_day), index=out.loc[is_post].index, dtype="float64")
+                    out.loc[is_post, "tallos_pred_ml2_dia"] = mapped_post.where(mapped_post.notna(), old_post)
     return out
 
 
@@ -1311,6 +1581,13 @@ def _overlay_operational_real_harvest(df_out: pd.DataFrame) -> pd.DataFrame:
 
     out.loc[idx, "tallos_pred_ml2_grado_dia"] = pd.to_numeric(hgm["tallos_grado_real"], errors="coerce").fillna(0.0).to_numpy(dtype=np.float32)
     out.loc[idx, "tallos_pred_ml2_dia"] = pd.to_numeric(hgm["tallos_dia_real_day"], errors="coerce").to_numpy(dtype=np.float32)
+    out.loc[idx, "tallos_grado_real"] = pd.to_numeric(hgm["tallos_grado_real"], errors="coerce").fillna(0.0).to_numpy(dtype=np.float32)
+    out.loc[idx, "tallos_dia_real"] = pd.to_numeric(hgm["tallos_dia_real_day"], errors="coerce").to_numpy(dtype=np.float32)
+    out.loc[idx, "share_grado_real"] = _safe_div(
+        pd.to_numeric(hgm["tallos_grado_real"], errors="coerce").fillna(0.0),
+        pd.to_numeric(hgm["tallos_dia_real_day"], errors="coerce"),
+        default=0.0,
+    ).to_numpy(dtype=np.float32)
     out.loc[idx, "share_grado_ml2_norm"] = _safe_div(
         pd.to_numeric(hgm["tallos_grado_real"], errors="coerce").fillna(0.0),
         pd.to_numeric(hgm["tallos_dia_real_day"], errors="coerce"),
@@ -1339,6 +1616,7 @@ def _overlay_operational_real_harvest(df_out: pd.DataFrame) -> pd.DataFrame:
             pd.to_numeric(hgg["peso_tallo_baseline_g"], errors="coerce"),
             default=np.nan,
         )
+        out.loc[idx_g, "peso_tallo_real_g"] = pd.to_numeric(hgg["peso_tallo_real_g"], errors="coerce").to_numpy(dtype=np.float32)
         out.loc[idx_g, "pred_ml2_factor_peso_tallo"] = facp.to_numpy(dtype=np.float32)
     if "kg_verde_ml2" in out.columns:
         out.loc[idx, "kg_verde_ml2"] = pd.to_numeric(hgm["kg_verde_grado_real"], errors="coerce").fillna(0.0).to_numpy(dtype=np.float32)
@@ -1357,7 +1635,18 @@ def _overlay_operational_real_harvest(df_out: pd.DataFrame) -> pd.DataFrame:
         post["grado_int"] = pd.to_numeric(post.get("grado"), errors="coerce").astype("Int64")
         post["variedad_canon"] = _canon_str(post.get("variedad_canon", "UNKNOWN"))
 
-        hg_map = hg.loc[m_day, [date_col, "bloque_base_int", "variedad_canon", "grado_int", "tallos_grado_real", "tallos_dia_real_day"]].copy()
+        hg_map = hg.loc[
+            m_day,
+            [
+                date_col,
+                "bloque_base_int",
+                "variedad_canon",
+                "grado_int",
+                "tallos_grado_real",
+                "tallos_dia_real_day",
+                "peso_tallo_real_g",
+            ],
+        ].copy()
         p2 = post.merge(
             hg_map,
             left_on=[date_col, "bloque_base_int", "variedad_canon", "grado_int"],
@@ -1370,8 +1659,69 @@ def _overlay_operational_real_harvest(df_out: pd.DataFrame) -> pd.DataFrame:
             mp_idx = pidx.notna()
             pidx = pidx.loc[mp_idx].astype(int)
             p2m = p2.loc[mp].loc[mp_idx]
-            out.loc[pidx, "tallos_pred_ml2_grado_dia"] = pd.to_numeric(p2m["tallos_grado_real"], errors="coerce").fillna(0.0).to_numpy(dtype=np.float32)
+            tgr_col = "tallos_grado_real"
+            if tgr_col not in p2m.columns:
+                if "tallos_grado_real_y" in p2m.columns:
+                    tgr_col = "tallos_grado_real_y"
+                elif "tallos_grado_real_x" in p2m.columns:
+                    tgr_col = "tallos_grado_real_x"
+            tgr_new = pd.to_numeric(p2m[tgr_col], errors="coerce").fillna(0.0)
+
+            # Preserve destino mix ratios from current post projection, but apply them
+            # over the real HG stems of the day/grade.
+            post_old_col = "tallos_post_ml2_proy" if "tallos_post_ml2_proy" in p2m.columns else ("tallos_post_proy" if "tallos_post_proy" in p2m.columns else None)
+            post_old = pd.to_numeric(p2m[post_old_col], errors="coerce") if post_old_col else pd.Series(np.nan, index=p2m.index)
+            grade_old_col = "tallos_pred_ml2_grado_dia" if "tallos_pred_ml2_grado_dia" in p2m.columns else ("tallos_pred_ml1_grado_dia" if "tallos_pred_ml1_grado_dia" in p2m.columns else None)
+            grade_old = pd.to_numeric(p2m[grade_old_col], errors="coerce") if grade_old_col else pd.Series(np.nan, index=p2m.index)
+            mix_ratio = _safe_div(post_old, grade_old, default=np.nan)
+            grp_idx = [p2m[date_col], p2m["bloque_base_int"], p2m["variedad_canon"], p2m["grado_int"]]
+            den_mix = mix_ratio.groupby(grp_idx, dropna=False).transform("sum")
+            cnt_mix = mix_ratio.groupby(grp_idx, dropna=False).transform("size").clip(lower=1)
+            mix_norm = pd.Series(
+                np.where(den_mix > 0.0, mix_ratio / den_mix, 1.0 / cnt_mix.astype(float)),
+                index=p2m.index,
+                dtype="float64",
+            ).fillna(0.0)
+            post_new = (tgr_new * mix_norm).clip(lower=0.0)
+
+            out.loc[pidx, "tallos_pred_ml2_grado_dia"] = tgr_new.to_numpy(dtype=np.float32)
             out.loc[pidx, "tallos_pred_ml2_dia"] = pd.to_numeric(p2m["tallos_dia_real_day"], errors="coerce").to_numpy(dtype=np.float32)
+            out.loc[pidx, "tallos_grado_real"] = tgr_new.to_numpy(dtype=np.float32)
+            out.loc[pidx, "tallos_dia_real"] = pd.to_numeric(p2m["tallos_dia_real_day"], errors="coerce").to_numpy(dtype=np.float32)
+            out.loc[pidx, "share_grado_real"] = _safe_div(
+                tgr_new,
+                pd.to_numeric(p2m["tallos_dia_real_day"], errors="coerce"),
+                default=0.0,
+            ).to_numpy(dtype=np.float32)
+            if "tallos_post_ml2_proy" in out.columns:
+                out.loc[pidx, "tallos_post_ml2_proy"] = post_new.to_numpy(dtype=np.float32)
+
+            # Use real stem weight (when present) for green-mass on anchored real rows.
+            peso_col = "peso_tallo_real_g"
+            if peso_col not in p2m.columns:
+                if "peso_tallo_real_g_y" in p2m.columns:
+                    peso_col = "peso_tallo_real_g_y"
+                elif "peso_tallo_real_g_x" in p2m.columns:
+                    peso_col = "peso_tallo_real_g_x"
+            peso_real = pd.to_numeric(p2m[peso_col], errors="coerce")
+            out.loc[pidx, "peso_tallo_real_g"] = peso_real.to_numpy(dtype=np.float32)
+            if "kg_verde_ml2" in out.columns:
+                kg_old = pd.to_numeric(p2m.get("kg_verde_ml2"), errors="coerce")
+                kg_new = (post_new * peso_real / 1000.0)
+                ratio_post = _safe_div(post_new, post_old, default=1.0).clip(lower=0.0)
+                kg_new = kg_new.where(kg_new.notna(), kg_old * ratio_post)
+                out.loc[pidx, "kg_verde_ml2"] = pd.to_numeric(kg_new, errors="coerce").fillna(0.0).to_numpy(dtype=np.float32)
+            if "gramos_verde_ml2" in out.columns:
+                g_old = pd.to_numeric(p2m.get("gramos_verde_ml2"), errors="coerce")
+                g_new = (post_new * peso_real)
+                ratio_post = _safe_div(post_new, post_old, default=1.0).clip(lower=0.0)
+                g_new = g_new.where(g_new.notna(), g_old * ratio_post)
+                out.loc[pidx, "gramos_verde_ml2"] = pd.to_numeric(g_new, errors="coerce").fillna(0.0).to_numpy(dtype=np.float32)
+            ratio_post = _safe_div(post_new, post_old, default=1.0).clip(lower=0.0)
+            for c in ["cajas_split_grado_dia_ml2", "cajas_ml1_grado_dia_ml2", "cajas_post_seed_ml2"]:
+                if c in out.columns:
+                    c_old = pd.to_numeric(p2m.get(c), errors="coerce")
+                    out.loc[pidx, c] = (c_old * ratio_post).to_numpy(dtype=np.float32)
 
     return out
 
@@ -1555,7 +1905,8 @@ def _expand_ml2_horizon_rows(df_out: pd.DataFrame) -> tuple[pd.DataFrame, int]:
             tail_step = int((pd.Timestamp(fev) - pd.Timestamp(last_date)).days)
             tail_decay = 1.0
             if tail_step > 0:
-                tail_decay = float(max(0.82, 1.0 - 0.03 * tail_step))
+                # Stronger taper on generated tail rows to avoid flat repeated endings.
+                tail_decay = float(max(0.35, 1.0 - 0.06 * tail_step))
 
             add_hg = hg_tpl.copy()
             add_hg["fecha_evento_ml2"] = fev
@@ -1683,6 +2034,8 @@ def main() -> None:
     )
     df_out_pure, n_added_pure = _expand_ml2_horizon_rows(df_out_pure)
     df_out_pure = _dedup_harvest_grade_rows(df_out_pure, prefer_real=False)
+    df_out_pure = _dedup_post_rows(df_out_pure, prefer_real=False)
+    df_out_pure = _rebalance_after_expansion(df_out_pure, preserve_real=False)
     bundle_pure = _compute_metrics_bundle(df=df, df_out=df_out_pure, specs=specs, dyn=dyn_pure)
 
     # ML2 global: no reemplaza real fila-a-fila, pero sí reproyecta la cadena completa.
@@ -1698,6 +2051,8 @@ def main() -> None:
     )
     df_out_global, n_added_global = _expand_ml2_horizon_rows(df_out_global)
     df_out_global = _dedup_harvest_grade_rows(df_out_global, prefer_real=False)
+    df_out_global = _dedup_post_rows(df_out_global, prefer_real=False)
+    df_out_global = _rebalance_after_expansion(df_out_global, preserve_real=False)
     bundle_global = _compute_metrics_bundle(df=df, df_out=df_out_global, specs=specs, dyn=dyn_global)
 
     # ML2 operativo: ancla a reales observados y reproyecta.
@@ -1723,6 +2078,8 @@ def main() -> None:
     df_out_oper = _dedup_harvest_grade_rows(df_out_oper, prefer_real=bool(args.anchor_real))
     if bool(args.anchor_real):
         df_out_oper = _overlay_operational_real_harvest(df_out_oper)
+    df_out_oper = _dedup_post_rows(df_out_oper, prefer_real=bool(args.anchor_real))
+    df_out_oper = _rebalance_after_expansion(df_out_oper, preserve_real=bool(args.anchor_real))
     bundle_oper = _compute_metrics_bundle(df=df, df_out=df_out_oper, specs=specs, dyn=dyn_oper)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
