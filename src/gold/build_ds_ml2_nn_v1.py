@@ -29,6 +29,14 @@ SILVER = DATA / "silver"
 ML1_PRED_DIR = DATA / "gold" / "ml1_nn"
 DEFAULT_OUT = DATA / "gold" / "ml2_nn" / "ds_ml2_nn_v1.parquet"
 IN_CICLO = SILVER / "fact_ciclo_maestro.parquet"
+RECENT_PESO_AR_COLS = [
+    "ar_peso_tallo_real_lag1",
+    "ar_peso_tallo_real_roll7",
+    "ar_peso_tallo_real_roll14",
+    "ar_ratio_peso_real_vs_base_lag1",
+    "ar_ratio_peso_real_vs_base_roll7",
+    "ar_ratio_peso_real_vs_base_roll14",
+]
 
 
 def _parse_args() -> argparse.Namespace:
@@ -234,6 +242,10 @@ def main() -> None:
         mcol = f"mask_{s.corr_target}"
         cov = float((ds[mcol] > 0).mean()) if len(ds) else 0.0
         print(f"       - {s.corr_target}: {cov:.2%}")
+    print("     recent peso AR coverage:")
+    for c in RECENT_PESO_AR_COLS:
+        cov = float(ds[c].notna().mean()) if (c in ds.columns and len(ds)) else 0.0
+        print(f"       - {c}: {cov:.2%}")
 
 
 if __name__ == "__main__":
