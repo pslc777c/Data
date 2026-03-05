@@ -33,6 +33,14 @@ MODELS_DIR = DATA / "models" / "ml2_nn"
 EVAL_DIR = DATA / "eval" / "ml2_nn"
 
 CORR_TARGETS = [s.corr_target for s in ML2_TARGET_SPECS]
+RECENT_PESO_AR_COLS = [
+    "ar_peso_tallo_real_lag1",
+    "ar_peso_tallo_real_roll7",
+    "ar_peso_tallo_real_roll14",
+    "ar_ratio_peso_real_vs_base_lag1",
+    "ar_ratio_peso_real_vs_base_roll7",
+    "ar_ratio_peso_real_vs_base_roll14",
+]
 
 
 @dataclass
@@ -114,6 +122,17 @@ def _prepare_dataframe(path: Path) -> pd.DataFrame:
         df[s.ml1_pred_col] = pd.to_numeric(df[s.ml1_pred_col], errors="coerce")
 
     return df.reset_index(drop=True)
+
+
+def _recent_peso_ar_coverage(df: pd.DataFrame) -> dict[str, float]:
+    out: dict[str, float] = {}
+    n = len(df)
+    for c in RECENT_PESO_AR_COLS:
+        if c in df.columns and n:
+            out[c] = float(pd.to_numeric(df[c], errors="coerce").notna().mean())
+        else:
+            out[c] = 0.0
+    return out
 
 
 def _build_features(
@@ -556,6 +575,7 @@ def main() -> None:
     rng = np.random.default_rng(args.seed)
 
     df = _prepare_dataframe(Path(args.input))
+    peso_ar_cov = _recent_peso_ar_coverage(df)
     train_idx, val_idx, cutoff = _split_indices(df, args.val_quantile)
 
     y_raw, m = _build_targets(df)
@@ -846,6 +866,7 @@ def main() -> None:
             "target_outlier_q_high": float(args.target_outlier_q_high),
             "dropped_location_cats": ["bloque_base", "area"],
             "n_outliers_removed_total": int(pd.to_numeric(outlier_audit["n_removed_total"], errors="coerce").fillna(0).sum()),
+            "recent_peso_ar_coverage": peso_ar_cov,
         },
         "target_specs": specs_as_dicts(),
         "correction_shrinkage": shrinkage_map,
@@ -875,6 +896,7 @@ def main() -> None:
         f"ML2={val_active_final_metrics.get('r2_ml2_avg', np.nan):.6f}"
     )
     print("     shrinkage=" + ", ".join(f"{k}:{v:.2f}" for k, v in shrinkage_map.items()))
+    print("     recent_peso_ar_coverage=" + ", ".join(f"{k}:{v:.2%}" for k, v in peso_ar_cov.items()))
 
 
 if __name__ == "__main__":
