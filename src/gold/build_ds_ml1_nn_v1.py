@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Iterable
@@ -21,6 +22,7 @@ SILVER_DIR = DATA_DIR / "silver"
 OUT_PATH = DATA_DIR / "gold" / "ml1_nn" / "ds_ml1_nn_v1.parquet"
 IN_FACT_PESO_REAL = SILVER_DIR / "fact_peso_tallo_real_grado_dia.parquet"
 IN_DIM_VARIEDAD = SILVER_DIR / "dim_variedad_canon.parquet"
+IN_B2_SHARE_REAL = SILVER_DIR / "dim_b2_share_real_fecha_post_variedad_grado_destino.parquet"
 IN_POST_SEED = DATA_DIR / "gold" / "pred_poscosecha_seed_grado_dia_bloque_destino.parquet"
 IN_PRED_KG_ML1 = DATA_DIR / "gold" / "pred_kg_grado_dia_ml1_full.parquet"
 IN_CLIMA = SILVER_DIR / "dim_clima_bloque_dia.parquet"
@@ -59,6 +61,7 @@ CATEGORY_COLS = [
     "tipo_sp",
     "grado",
     "destino",
+    "fallback_level_b2",
 ]
 
 NUMERIC_COLS = [
@@ -101,6 +104,8 @@ NUMERIC_COLS = [
     "wideal_kg",
     "desp_pct",
     "share_block_post",
+    "share_dest_real_b2",
+    "b2_peso_dest_real_kg",
     "cajas_ml1_grado_dia",
     "cajas_split_grado_dia",
     "cajas_post_seed",
@@ -136,6 +141,17 @@ BASE_COLS = [
     "grado",
     "destino",
 ]
+
+
+def _parse_args() -> argparse.Namespace:
+    ap = argparse.ArgumentParser("build_ds_ml1_nn_v1")
+    ap.add_argument("--output", default=str(OUT_PATH))
+    ap.add_argument(
+        "--skip-harvest-day",
+        action="store_true",
+        help="Do not include HARVEST_DAY rows in the unified ML1 dataset.",
+    )
+    return ap.parse_args()
 
 
 def _to_date(s: pd.Series) -> pd.Series:
@@ -686,6 +702,49 @@ def _build_seed_distribution_for_post() -> pd.DataFrame:
     return seed
 
 
+def _load_b2_share_real_post() -> pd.DataFrame:
+    cols = [
+        "fecha_post",
+        "variedad_canon",
+        "grado_int",
+        "destino",
+        "share_dest_real_b2",
+        "b2_peso_dest_real_kg",
+        "fallback_level_b2",
+    ]
+    if not IN_B2_SHARE_REAL.exists():
+        return pd.DataFrame(columns=cols)
+
+    b2 = read_parquet(IN_B2_SHARE_REAL).copy()
+    b2.columns = [str(c).strip() for c in b2.columns]
+    need = {"fecha_post", "variedad_canon", "grado_int", "destino", "share_dest_real_b2"}
+    if not need.issubset(set(b2.columns)):
+        return pd.DataFrame(columns=cols)
+
+    b2["fecha_post"] = _to_date(b2["fecha_post"])
+    b2["variedad_canon"] = _canon_str(b2["variedad_canon"])
+    b2["grado"] = pd.to_numeric(b2["grado_int"], errors="coerce").round().astype("Int64")
+    b2["destino"] = _canon_str(b2["destino"])
+    b2["share_dest_real_b2"] = pd.to_numeric(b2["share_dest_real_b2"], errors="coerce").clip(lower=0.0, upper=1.0)
+    if "b2_peso_dest_real_kg" in b2.columns:
+        b2["b2_peso_dest_real_kg"] = pd.to_numeric(b2["b2_peso_dest_real_kg"], errors="coerce")
+    else:
+        b2["b2_peso_dest_real_kg"] = np.nan
+    if "fallback_level_b2" in b2.columns:
+        b2["fallback_level_b2"] = _canon_str(b2["fallback_level_b2"])
+    else:
+        b2["fallback_level_b2"] = "UNKNOWN"
+
+    key = ["fecha_post", "variedad_canon", "grado", "destino"]
+    out = (
+        b2[key + ["share_dest_real_b2", "b2_peso_dest_real_kg", "fallback_level_b2"]]
+        .dropna(subset=key)
+        .drop_duplicates(subset=key, keep="first")
+        .copy()
+    )
+    return out
+
+
 def _build_stage_post() -> pd.DataFrame:
     post_real = read_parquet(SILVER_DIR / "fact_hidratacion_real_post_grado_destino.parquet").copy()
     post_real.columns = [str(c).strip() for c in post_real.columns]
@@ -749,15 +808,46 @@ def _build_stage_post() -> pd.DataFrame:
     df["tallos_pred_ml1_grado_dia"] = pd.to_numeric(df.get("tallos_pred_ml1_grado_dia"), errors="coerce")
     df["tallos_pred_baseline_grado_dia"] = pd.to_numeric(df.get("tallos_pred_baseline_grado_dia"), errors="coerce")
 
-    share_dest = np.where(
+    # Seed split (ventas/proyección) per row.
+    share_dest_seed = np.where(
         df["cajas_ml1_grado_dia"].fillna(0.0) > 0.0,
         df["cajas_split_grado_dia"] / df["cajas_ml1_grado_dia"],
         np.nan,
     )
-    share_dest = pd.Series(share_dest, index=df.index).fillna(1.0 / 3.0).clip(lower=0.0, upper=1.0)
-    df["kg_verde_ref"] = df["kg_ml1_grado_dia"] * share_dest
+    share_dest_seed = pd.Series(share_dest_seed, index=df.index).fillna(1.0 / 3.0).clip(lower=0.0, upper=1.0)
+
+    # Real split (BALANZA 2) by fecha_post + variedad + grado + destino, when available.
+    b2_share = _load_b2_share_real_post()
+    if not b2_share.empty:
+        df = df.merge(
+            b2_share.rename(columns={"grado": "grado"}),
+            left_on=["fecha_post", "variedad_canon", "grado", "destino"],
+            right_on=["fecha_post", "variedad_canon", "grado", "destino"],
+            how="left",
+        )
+    else:
+        df["share_dest_real_b2"] = np.nan
+        df["b2_peso_dest_real_kg"] = np.nan
+        df["fallback_level_b2"] = "UNKNOWN"
+
+    share_dest_real = pd.to_numeric(df.get("share_dest_real_b2"), errors="coerce")
+    share_dest_use = share_dest_real.where(share_dest_real.notna(), share_dest_seed)
+    share_dest_use = share_dest_use.clip(lower=0.0, upper=1.0)
+
+    # Normalize inside each block-day-grade so split sums to 1 across destinos.
+    gpost = ["fecha_evento", "ciclo_id", "bloque_base", "variedad_canon", "grado"]
+    den_sd = share_dest_use.groupby([df[c] for c in gpost], dropna=False).transform("sum")
+    n_sd = share_dest_use.groupby([df[c] for c in gpost], dropna=False).transform("size").clip(lower=1)
+    share_dest_norm = pd.Series(
+        np.where(den_sd > 0.0, share_dest_use / den_sd, 1.0 / n_sd.astype(float)),
+        index=df.index,
+        dtype="float64",
+    ).clip(lower=0.0, upper=1.0)
+
+    df["share_dest_real_b2"] = share_dest_real
+    df["kg_verde_ref"] = df["kg_ml1_grado_dia"] * share_dest_norm
     df["gramos_verde_ref"] = df["kg_verde_ref"] * 1000.0
-    df["tallos_post_proy"] = df["tallos_pred_ml1_grado_dia"] * share_dest
+    df["tallos_post_proy"] = df["tallos_pred_ml1_grado_dia"] * share_dest_norm
     df["tallos_pred_ml1_dia"] = df.groupby(["fecha_evento", "ciclo_id", "bloque_base", "variedad_canon"], dropna=False)["tallos_pred_ml1_grado_dia"].transform("sum")
 
     # Post real labels (only where history exists).
@@ -837,13 +927,18 @@ def _build_stage_post() -> pd.DataFrame:
 
 
 def main() -> None:
+    args = _parse_args()
     created_at = pd.Timestamp(datetime.now(timezone.utc))
 
-    parts = [
-        _build_stage_veg(),
-        _build_stage_harvest_grade(),
-        _build_stage_post(),
-    ]
+    parts = [_build_stage_veg()]
+    if not bool(args.skip_harvest_day):
+        parts.append(_build_stage_harvest_day())
+    parts.extend(
+        [
+            _build_stage_harvest_grade(),
+            _build_stage_post(),
+        ]
+    )
     ds = pd.concat(parts, ignore_index=True)
     ds = _add_autoregressive_features(ds)
     ds["row_id"] = np.arange(len(ds), dtype=np.int64)
@@ -852,10 +947,11 @@ def main() -> None:
 
     ds = ds.sort_values(["fecha_evento", "stage", "row_source"], kind="mergesort").reset_index(drop=True)
 
-    OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    write_parquet(ds, OUT_PATH)
+    out_path = Path(args.output)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    write_parquet(ds, out_path)
 
-    print(f"[OK] Wrote dataset: {OUT_PATH}")
+    print(f"[OK] Wrote dataset: {out_path}")
     print(f"     rows={len(ds):,} | rows_with_any_target={int(ds['has_any_target'].sum()):,}")
     print(f"     fecha_evento=[{ds['fecha_evento'].min()} .. {ds['fecha_evento'].max()}]")
     print("     stage rows:")

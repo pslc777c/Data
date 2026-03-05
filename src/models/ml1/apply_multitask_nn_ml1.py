@@ -709,7 +709,7 @@ def _rebuild_ml1_harvest_chain(df: pd.DataFrame) -> pd.DataFrame:
         share_norm = pd.Series(np.where(den > 0.0, share_use / den, 1.0 / ngrp.astype(float)), index=hg.index).fillna(0.0)
         tallos_grade_new = (hg["tallos_day_new"] * share_norm).clip(lower=0.0)
         out.loc[hg.index, "tallos_pred_ml1_grado_dia"] = tallos_grade_new.to_numpy(dtype=np.float64)
-        out.loc[hg.index, "pred_share_grado"] = share_norm.to_numpy(dtype=np.float64)
+        out.loc[hg.index, "pred_share_grado"] = share_norm.to_numpy(dtype=np.float32)
 
         # Keep cycle mass aligned to tallos_proy when target is available.
         if "tallos_proy" in out.columns and "ciclo_id" in out.columns:

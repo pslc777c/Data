@@ -80,6 +80,15 @@ def build_registry() -> list[Step]:
              ["silver/dim_hidratacion_baseline_grado_destino.parquet"]),
         Step("dim_variedad_canon", "silver", "src/silver/build_dim_variedad_canon.py",
              ["silver/dim_variedad_canon.parquet"]),
+        Step(
+            "dim_b2_share_real_fecha_post_variedad_grado_destino",
+            "silver",
+            "src/silver/build_dim_b2_share_real_fecha_post_variedad_grado_destino.py",
+            [
+                "silver/dim_b2_share_real_fecha_post_variedad_grado_destino.parquet",
+                "silver/dim_b2_share_real_fecha_post_variedad_grado_summary.parquet",
+            ],
+        ),
         Step("dim_clima_bloque_dia", "silver", "src/silver/build_dim_clima_bloque_dia.py",
              ["silver/dim_clima_bloque_dia.parquet"]),
         Step("dim_estado_termico_cultivo_bloque_fecha", "silver",

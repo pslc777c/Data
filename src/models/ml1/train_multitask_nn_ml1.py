@@ -55,6 +55,7 @@ CAT_COLS = [
     "tipo_sp",
     "grado",
     "destino",
+    "fallback_level_b2",
 ]
 
 NUM_COLS = [
@@ -97,6 +98,8 @@ NUM_COLS = [
     "wideal_kg",
     "desp_pct",
     "share_block_post",
+    "share_dest_real_b2",
+    "b2_peso_dest_real_kg",
     "cajas_ml1_grado_dia",
     "cajas_split_grado_dia",
     "cajas_post_seed",

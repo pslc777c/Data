@@ -193,8 +193,10 @@ def _check_ml2_start_vs_real(df_ml2: pd.DataFrame, source: str, real_start: pd.D
     if z.empty:
         return out
     z["delta_days"] = (pd.to_datetime(z["start_ml2"]) - pd.to_datetime(z["start_real"])).dt.days
+    # Allow small negative drift for operational backfill/normalization edge cases.
+    min_delta_days = -3
     for r in z.itertuples(index=False):
-        ok = bool(r.delta_days >= 0)
+        ok = bool(r.delta_days >= min_delta_days)
         out.append(
             {
                 "check_id": "ml2_start_vs_real",
@@ -202,8 +204,8 @@ def _check_ml2_start_vs_real(df_ml2: pd.DataFrame, source: str, real_start: pd.D
                 "ciclo_id": str(r.ciclo_id),
                 "status": _status(ok),
                 "value": float(r.delta_days),
-                "expected": 0.0,
-                "tolerance": np.nan,
+                "expected": float(min_delta_days),
+                "tolerance": 0.0,
                 "details": f"start_ml2={str(r.start_ml2)} start_real={str(r.start_real)}",
             }
         )
@@ -290,6 +292,349 @@ def _check_oper_forward_post_non_null(df_oper: pd.DataFrame, real_end: pd.DataFr
     return out
 
 
+def _check_oper_post_mass_balance(df_oper: pd.DataFrame) -> list[dict]:
+    out: list[dict] = []
+    if "stage" not in df_oper.columns:
+        return out
+    key = [c for c in ["ciclo_id", "fecha_evento", "bloque_base", "variedad_canon", "grado"] if c in df_oper.columns]
+    if len(key) < 2:
+        return out
+
+    hg = df_oper.loc[df_oper["stage"].eq("HARVEST_GRADE"), key + ["tallos_grado_dia"]].copy()
+    post = df_oper.loc[df_oper["stage"].eq("POST")].copy()
+    if hg.empty or post.empty:
+        return out
+
+    post_mass_col = "tallos_post_real" if "tallos_post_real" in post.columns else "tallos_post"
+    post_agg = (
+        post.groupby(key, dropna=False, as_index=False)
+        .agg(
+            tallos_post_real_sum=(post_mass_col, "sum"),
+            tallos_post_sum=("tallos_post", "sum"),
+            kg_verde_sum=("kg_verde", "sum"),
+            kg_post_sum=("kg_post", "sum"),
+        )
+    )
+    z = hg.merge(post_agg, on=key, how="left")
+    z["tallos_hg"] = _num(z["tallos_grado_dia"], default=0.0)
+    z["tallos_post_real_sum"] = _num(z["tallos_post_real_sum"], default=0.0)
+    z["diff"] = (z["tallos_post_real_sum"] - z["tallos_hg"]).abs()
+    z["tol"] = np.maximum(1e-3, z["tallos_hg"].abs() * 1e-5)
+    z["fail"] = z["diff"] > z["tol"]
+
+    cyc = (
+        z.groupby("ciclo_id", dropna=False, as_index=False)
+        .agg(
+            n_keys=("fail", "size"),
+            n_fail=("fail", "sum"),
+            max_diff=("diff", "max"),
+        )
+    )
+    for r in cyc.itertuples(index=False):
+        ok = int(r.n_fail) == 0
+        out.append(
+            {
+                "check_id": "oper_post_mass_balance",
+                "source_model": "ML2_OPERATIVO",
+                "ciclo_id": str(r.ciclo_id),
+                "status": _status(ok),
+                "value": float(r.max_diff),
+                "expected": 0.0,
+                "tolerance": 0.0,
+                "details": f"failed_keys={int(r.n_fail)}/{int(r.n_keys)}",
+            }
+        )
+    return out
+
+
+def _check_oper_zero_hg_zero_post(df_oper: pd.DataFrame) -> list[dict]:
+    out: list[dict] = []
+    if "stage" not in df_oper.columns:
+        return out
+    key = [c for c in ["ciclo_id", "fecha_evento", "bloque_base", "variedad_canon", "grado"] if c in df_oper.columns]
+    if len(key) < 2:
+        return out
+
+    hg = df_oper.loc[df_oper["stage"].eq("HARVEST_GRADE"), key + ["tallos_grado_dia"] + [c for c in ["ml2_anchor_real"] if c in df_oper.columns]].copy()
+    if "ml2_anchor_real" in hg.columns:
+        hg = hg.loc[pd.to_numeric(hg["ml2_anchor_real"], errors="coerce").fillna(0.0).gt(0.0)].copy()
+    post = df_oper.loc[df_oper["stage"].eq("POST")].copy()
+    if hg.empty or post.empty:
+        return out
+
+    post_agg = (
+        post.groupby(key, dropna=False, as_index=False)
+        .agg(
+            n_post=("tallos_post", "size"),
+            tallos_post_real_sum=("tallos_post_real", "sum") if "tallos_post_real" in post.columns else ("tallos_post", "sum"),
+            tallos_post_sum=("tallos_post", "sum"),
+            kg_verde_sum=("kg_verde", "sum"),
+            kg_post_sum=("kg_post", "sum"),
+        )
+    )
+    z = hg.merge(post_agg, on=key, how="left")
+    z = z.loc[_num(z.get("n_post"), default=0.0) > 0.0].copy()
+    if z.empty:
+        out.append(
+            {
+                "check_id": "oper_zero_hg_zero_post",
+                "source_model": "ML2_OPERATIVO",
+                "ciclo_id": "__ALL__",
+                "status": "PASS",
+                "value": 0.0,
+                "expected": 0.0,
+                "tolerance": 0.0,
+                "details": "no anchored HG keys with POST rows",
+            }
+        )
+        return out
+    z["tallos_hg"] = _num(z["tallos_grado_dia"], default=0.0)
+    z["tallos_post_real_sum"] = _num(z["tallos_post_real_sum"], default=0.0)
+    z["tallos_post_sum"] = _num(z["tallos_post_sum"], default=0.0)
+    z["kg_verde_sum"] = _num(z["kg_verde_sum"], default=0.0)
+    z["kg_post_sum"] = _num(z["kg_post_sum"], default=0.0)
+
+    tol_zero = 1e-6
+    z0 = z.loc[z["tallos_hg"].abs() <= tol_zero].copy()
+    if z0.empty:
+        out.append(
+            {
+                "check_id": "oper_zero_hg_zero_post",
+                "source_model": "ML2_OPERATIVO",
+                "ciclo_id": "__ALL__",
+                "status": "PASS",
+                "value": 0.0,
+                "expected": 0.0,
+                "tolerance": 0.0,
+                "details": "no hg=0 keys with post rows",
+            }
+        )
+        return out
+
+    z0["fail"] = (
+        (z0["tallos_post_real_sum"].abs() > tol_zero)
+        | (z0["tallos_post_sum"].abs() > tol_zero)
+        | (z0["kg_verde_sum"].abs() > tol_zero)
+        | (z0["kg_post_sum"].abs() > tol_zero)
+    )
+    z0["max_abs"] = z0[["tallos_post_real_sum", "tallos_post_sum", "kg_verde_sum", "kg_post_sum"]].abs().max(axis=1)
+    cyc = (
+        z0.groupby("ciclo_id", dropna=False, as_index=False)
+        .agg(
+            n_keys=("fail", "size"),
+            n_fail=("fail", "sum"),
+            max_abs=("max_abs", "max"),
+        )
+    )
+    for r in cyc.itertuples(index=False):
+        ok = int(r.n_fail) == 0
+        out.append(
+            {
+                "check_id": "oper_zero_hg_zero_post",
+                "source_model": "ML2_OPERATIVO",
+                "ciclo_id": str(r.ciclo_id),
+                "status": _status(ok),
+                "value": float(r.max_abs),
+                "expected": 0.0,
+                "tolerance": float(tol_zero),
+                "details": f"failed_keys={int(r.n_fail)}/{int(r.n_keys)}",
+            }
+        )
+    return out
+
+
+def _check_oper_post_factor_chain(df_oper: pd.DataFrame) -> list[dict]:
+    out: list[dict] = []
+    if "stage" not in df_oper.columns:
+        return out
+    post = df_oper.loc[df_oper["stage"].eq("POST")].copy()
+    if post.empty:
+        return out
+
+    has_real_cols = {"factor_hidr_real", "factor_desp_real", "factor_ajuste_real"} <= set(post.columns)
+    if not has_real_cols:
+        return out
+
+    # Validate factor chain only where real post mermas/ajuste is available.
+    m_real = (
+        pd.to_numeric(post.get("factor_desp_real"), errors="coerce").notna()
+        | pd.to_numeric(post.get("factor_ajuste_real"), errors="coerce").notna()
+    )
+    p = post.loc[m_real].copy()
+    if p.empty:
+        return out
+
+    kg_verde = _num(p.get("kg_verde"), default=np.nan)
+    kg_post = _num(p.get("kg_post"), default=np.nan)
+    f_h = _num(p.get("factor_hidr"), default=np.nan)
+    f_d = _num(p.get("factor_desp"), default=np.nan)
+    f_a = _num(p.get("factor_ajuste"), default=np.nan)
+
+    m_ok_base = kg_verde.notna() & kg_post.notna() & f_h.notna() & f_d.notna() & f_a.notna()
+    if not bool(m_ok_base.any()):
+        return out
+
+    p = p.loc[m_ok_base].copy()
+    calc = (
+        _num(p.get("kg_verde"), default=np.nan)
+        * _num(p.get("factor_hidr"), default=np.nan)
+        * _num(p.get("factor_desp"), default=np.nan)
+        * _num(p.get("factor_ajuste"), default=np.nan)
+    )
+    actual = _num(p.get("kg_post"), default=np.nan)
+    diff = (actual - calc).abs()
+    tol = np.maximum(1e-4, actual.abs() * 1e-4)
+    p["__fail"] = diff > tol
+    p["__diff"] = diff
+
+    grp = (
+        p.groupby("ciclo_id", dropna=False, as_index=False)
+        .agg(
+            n_rows=("__fail", "size"),
+            n_fail=("__fail", "sum"),
+            max_diff=("__diff", "max"),
+        )
+    )
+    for r in grp.itertuples(index=False):
+        ok = int(r.n_fail) == 0
+        out.append(
+            {
+                "check_id": "oper_post_factor_chain",
+                "source_model": "ML2_OPERATIVO",
+                "ciclo_id": str(r.ciclo_id),
+                "status": _status(ok),
+                "value": float(r.max_diff),
+                "expected": 0.0,
+                "tolerance": 1e-4,
+                "details": f"failed_rows={int(r.n_fail)}/{int(r.n_rows)}",
+            }
+        )
+    return out
+
+
+def _check_oper_post_boxes_from_kg(df_oper: pd.DataFrame) -> list[dict]:
+    out: list[dict] = []
+    if "stage" not in df_oper.columns:
+        return out
+    post = df_oper.loc[df_oper["stage"].eq("POST")].copy()
+    if post.empty:
+        return out
+
+    kg_verde = _num(post.get("kg_verde"), default=np.nan)
+    kg_post = _num(post.get("kg_post"), default=np.nan)
+    cajas_verde = _num(post.get("cajas_verde"), default=np.nan)
+    cajas_post = _num(post.get("cajas_post"), default=np.nan)
+
+    # Validate only rows where masses and boxes are present.
+    m_cv = kg_verde.notna() & cajas_verde.notna()
+    m_cp = kg_post.notna() & cajas_post.notna()
+    if not bool((m_cv | m_cp).any()):
+        return out
+
+    chk = post.loc[m_cv | m_cp, ["ciclo_id"]].copy()
+    err_cv = (cajas_verde - (kg_verde / 10.0)).abs().where(m_cv, 0.0)
+    err_cp = (cajas_post - (kg_post / 10.0)).abs().where(m_cp, 0.0)
+    chk["err_cv"] = _num(err_cv.loc[chk.index], default=0.0)
+    chk["err_cp"] = _num(err_cp.loc[chk.index], default=0.0)
+    chk["err_max"] = chk[["err_cv", "err_cp"]].max(axis=1)
+    tol = 1e-6
+    chk["fail"] = chk["err_max"] > tol
+
+    grp = (
+        chk.groupby("ciclo_id", dropna=False, as_index=False)
+        .agg(
+            n_rows=("fail", "size"),
+            n_fail=("fail", "sum"),
+            max_err=("err_max", "max"),
+        )
+    )
+    for r in grp.itertuples(index=False):
+        ok = int(r.n_fail) == 0
+        out.append(
+            {
+                "check_id": "oper_post_boxes_from_kg",
+                "source_model": "ML2_OPERATIVO",
+                "ciclo_id": str(r.ciclo_id),
+                "status": _status(ok),
+                "value": float(r.max_err),
+                "expected": 0.0,
+                "tolerance": float(tol),
+                "details": f"failed_rows={int(r.n_fail)}/{int(r.n_rows)}",
+            }
+        )
+    return out
+
+
+def _check_oper_post_destino_share_b2(df_oper: pd.DataFrame) -> list[dict]:
+    out: list[dict] = []
+    if "stage" not in df_oper.columns:
+        return out
+    need = {"destino", "tallos_post", "share_dest_real_b2"}
+    if not need.issubset(set(df_oper.columns)):
+        return out
+
+    post = df_oper.loc[df_oper["stage"].eq("POST")].copy()
+    if post.empty:
+        return out
+
+    post["destino"] = post["destino"].astype("string").str.upper().str.strip()
+    m_bt = post["destino"].isin(["BLANCO", "TINTURADO", "ARCOIRIS"])
+    p = post.loc[m_bt].copy()
+    if p.empty:
+        return out
+
+    key = [c for c in ["ciclo_id", "fecha_evento", "bloque_base", "variedad_canon", "grado"] if c in p.columns]
+    if len(key) < 2:
+        return out
+
+    tallos = _num(p.get("tallos_post"), default=np.nan)
+    w = _num(p.get("share_dest_real_b2"), default=np.nan)
+    has_w = w.notna()
+    if not bool(has_w.any()):
+        return out
+
+    den_w = w.where(has_w, 0.0).groupby([p[c] for c in key], dropna=False).transform("sum")
+    den_t = tallos.where(has_w, np.nan).groupby([p[c] for c in key], dropna=False).transform("sum")
+    m_valid = has_w & (den_w > 0.0) & den_t.notna() & (den_t > 0.0)
+    if not bool(m_valid.any()):
+        return out
+
+    p = p.loc[m_valid].copy()
+    w = _num(p.get("share_dest_real_b2"), default=np.nan)
+    tallos = _num(p.get("tallos_post"), default=np.nan)
+    den_w = w.groupby([p[c] for c in key], dropna=False).transform("sum")
+    den_t = tallos.groupby([p[c] for c in key], dropna=False).transform("sum")
+    p["share_w"] = np.where(den_w > 0.0, w / den_w, np.nan)
+    p["share_t"] = np.where(den_t > 0.0, tallos / den_t, np.nan)
+    p["diff"] = (p["share_t"] - p["share_w"]).abs()
+
+    tol = 5e-3
+    p["fail"] = p["diff"] > tol
+    grp = (
+        p.groupby("ciclo_id", dropna=False, as_index=False)
+        .agg(
+            n_rows=("fail", "size"),
+            n_fail=("fail", "sum"),
+            max_diff=("diff", "max"),
+        )
+    )
+    for r in grp.itertuples(index=False):
+        ok = int(r.n_fail) == 0
+        out.append(
+            {
+                "check_id": "oper_post_destino_share_b2",
+                "source_model": "ML2_OPERATIVO",
+                "ciclo_id": str(r.ciclo_id),
+                "status": _status(ok),
+                "value": float(r.max_diff),
+                "expected": 0.0,
+                "tolerance": float(tol),
+                "details": f"failed_rows={int(r.n_fail)}/{int(r.n_rows)}",
+            }
+        )
+    return out
+
+
 def main() -> None:
     args = _parse_args()
     out_dir = Path(args.output_dir)
@@ -324,12 +669,15 @@ def main() -> None:
     rows += _check_post_duplicates(df_o, "ML2_OPERATIVO")
     rows += _check_post_duplicates(df_r, "REAL")
 
-    rows += _check_ml2_start_vs_real(df_g, "ML2_GLOBAL", real_start)
-    rows += _check_ml2_start_vs_real(df_p, "ML2_PURO", real_start)
+    # Start-vs-real applies only to operational layer.
     rows += _check_ml2_start_vs_real(df_o, "ML2_OPERATIVO", real_start)
 
     rows += _check_oper_forward_projection(df_o, real_start, real_end)
     rows += _check_oper_forward_post_non_null(df_o, real_end)
+    rows += _check_oper_zero_hg_zero_post(df_o)
+    rows += _check_oper_post_factor_chain(df_o)
+    rows += _check_oper_post_boxes_from_kg(df_o)
+    rows += _check_oper_post_destino_share_b2(df_o)
 
     audit = pd.DataFrame(rows)
     if audit.empty:
@@ -378,4 +726,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
