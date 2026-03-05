@@ -90,6 +90,7 @@ NUMERIC_COLS = [
     "gdc_acum_desde_sp",
     "share_grado_baseline",
     "peso_tallo_baseline_g",
+    "peso_tallo_real_proxy_g",
     "tallos_pred_baseline_dia",
     "tallos_post",
     "tallos_post_proy",
@@ -126,6 +127,12 @@ NUMERIC_COLS = [
     "ar_gdc_dia_roll3",
     "ar_temp_avg_dia_roll3",
     "ar_rainfall_mm_roll3",
+    "ar_peso_tallo_real_lag1",
+    "ar_peso_tallo_real_roll7",
+    "ar_peso_tallo_real_roll14",
+    "ar_ratio_peso_real_vs_base_lag1",
+    "ar_ratio_peso_real_vs_base_roll7",
+    "ar_ratio_peso_real_vs_base_roll14",
 ]
 
 BASE_COLS = [
@@ -221,6 +228,10 @@ def _add_autoregressive_features(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
     out["fecha_evento"] = _to_date(out["fecha_evento"])
     out["ciclo_id"] = out["ciclo_id"].astype("string").fillna("UNKNOWN")
+    if "peso_tallo_real_proxy_g" not in out.columns:
+        out["peso_tallo_real_proxy_g"] = np.nan
+    if "peso_tallo_baseline_g" not in out.columns:
+        out["peso_tallo_baseline_g"] = np.nan
 
     grp = ["ciclo_id", "fecha_evento"]
     day = (
@@ -232,6 +243,8 @@ def _add_autoregressive_features(df: pd.DataFrame) -> pd.DataFrame:
             gdc_dia=("gdc_dia", "median"),
             temp_avg_dia=("temp_avg_dia", "median"),
             rainfall_mm_dia=("rainfall_mm_dia", "median"),
+            peso_tallo_real_dia=("peso_tallo_real_proxy_g", "median"),
+            peso_tallo_base_dia=("peso_tallo_baseline_g", "median"),
         )
         .sort_values(grp, kind="mergesort")
         .reset_index(drop=True)
@@ -245,6 +258,12 @@ def _add_autoregressive_features(df: pd.DataFrame) -> pd.DataFrame:
         pd.to_numeric(day["tallos_pred_baseline_dia"], errors="coerce").fillna(0.0) > 0.0,
         pd.to_numeric(day["tallos_real_proxy_dia"], errors="coerce")
         / pd.to_numeric(day["tallos_pred_baseline_dia"], errors="coerce"),
+        np.nan,
+    )
+    day["ratio_peso_real_vs_base"] = np.where(
+        pd.to_numeric(day["peso_tallo_base_dia"], errors="coerce").fillna(0.0) > 0.0,
+        pd.to_numeric(day["peso_tallo_real_dia"], errors="coerce")
+        / pd.to_numeric(day["peso_tallo_base_dia"], errors="coerce"),
         np.nan,
     )
 
@@ -273,6 +292,20 @@ def _add_autoregressive_features(df: pd.DataFrame) -> pd.DataFrame:
     day["ar_rainfall_mm_roll3"] = gby["rainfall_mm_dia"].transform(
         lambda s: pd.to_numeric(s, errors="coerce").shift(1).rolling(3, min_periods=1).mean()
     )
+    day["ar_peso_tallo_real_lag1"] = gby["peso_tallo_real_dia"].shift(1)
+    day["ar_peso_tallo_real_roll7"] = gby["peso_tallo_real_dia"].transform(
+        lambda s: pd.to_numeric(s, errors="coerce").shift(1).rolling(7, min_periods=1).mean()
+    )
+    day["ar_peso_tallo_real_roll14"] = gby["peso_tallo_real_dia"].transform(
+        lambda s: pd.to_numeric(s, errors="coerce").shift(1).rolling(14, min_periods=1).mean()
+    )
+    day["ar_ratio_peso_real_vs_base_lag1"] = gby["ratio_peso_real_vs_base"].shift(1)
+    day["ar_ratio_peso_real_vs_base_roll7"] = gby["ratio_peso_real_vs_base"].transform(
+        lambda s: pd.to_numeric(s, errors="coerce").shift(1).rolling(7, min_periods=1).mean()
+    )
+    day["ar_ratio_peso_real_vs_base_roll14"] = gby["ratio_peso_real_vs_base"].transform(
+        lambda s: pd.to_numeric(s, errors="coerce").shift(1).rolling(14, min_periods=1).mean()
+    )
 
     ar_cols = [
         "ar_tallos_real_dia_lag1",
@@ -284,6 +317,12 @@ def _add_autoregressive_features(df: pd.DataFrame) -> pd.DataFrame:
         "ar_gdc_dia_roll3",
         "ar_temp_avg_dia_roll3",
         "ar_rainfall_mm_roll3",
+        "ar_peso_tallo_real_lag1",
+        "ar_peso_tallo_real_roll7",
+        "ar_peso_tallo_real_roll14",
+        "ar_ratio_peso_real_vs_base_lag1",
+        "ar_ratio_peso_real_vs_base_roll7",
+        "ar_ratio_peso_real_vs_base_roll14",
     ]
     # Remove placeholder AR columns before merge to avoid *_x/*_y duplicates.
     drop_cols = [c for c in ar_cols if c in out.columns]
@@ -584,6 +623,7 @@ def _build_stage_harvest_grade() -> pd.DataFrame:
         pd.Series(fac_from_feat, index=df.index).notna(),
         pd.Series(fac_from_real, index=df.index),
     )
+    df["peso_tallo_real_proxy_g"] = pd.to_numeric(df.get("peso_tallo_real_g"), errors="coerce")
 
     out = _with_common_schema(df, stage="HARVEST_GRADE", row_source="features_cosecha_plus_peso")
     return out

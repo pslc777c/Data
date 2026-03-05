@@ -52,6 +52,7 @@ def main() -> None:
         "ventas_2025": ventas_cfg.get("ventas_2025_path", ""),
         "ventas_2026": ventas_cfg.get("ventas_2026_path", ""),
     }
+    generated: list[Path] = []
 
     for tag, path in paths.items():
         if not path:
@@ -66,8 +67,20 @@ def main() -> None:
 
         out = bronze_dir / f"{tag}_raw.parquet"
         write_parquet(df, out)
+        generated.append(out)
 
         _info(f"OK: {tag}_raw={len(df)} filas -> {out}")
+
+    existing = [
+        bronze_dir / "ventas_2025_raw.parquet",
+        bronze_dir / "ventas_2026_raw.parquet",
+    ]
+    if not generated and not any(p.exists() for p in existing):
+        raise FileNotFoundError(
+            "No se generaron ventas raw en bronze y tampoco existen archivos previos.\n"
+            "Configura ventas.ventas_2025_path / ventas.ventas_2026_path en config/settings.yaml\n"
+            "o restaura baseline con data/bronze (ventas_2025_raw.parquet / ventas_2026_raw.parquet)."
+        )
 
 
 if __name__ == "__main__":

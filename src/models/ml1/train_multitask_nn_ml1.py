@@ -118,6 +118,12 @@ NUM_COLS = [
     "ar_gdc_dia_roll3",
     "ar_temp_avg_dia_roll3",
     "ar_rainfall_mm_roll3",
+    "ar_peso_tallo_real_lag1",
+    "ar_peso_tallo_real_roll7",
+    "ar_peso_tallo_real_roll14",
+    "ar_ratio_peso_real_vs_base_lag1",
+    "ar_ratio_peso_real_vs_base_roll7",
+    "ar_ratio_peso_real_vs_base_roll14",
 ]
 
 
