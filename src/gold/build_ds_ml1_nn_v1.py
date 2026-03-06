@@ -608,7 +608,31 @@ def _build_stage_harvest_grade() -> pd.DataFrame:
     )
     df = df.merge(pr, on=key, how="left")
 
-    df["target_share_grado"] = pd.to_numeric(df.get("share_grado_real"), errors="coerce")
+    # Build target_share_grado from REAL stems by grade when available.
+    # This is statistically more robust than relying only on source share_grado_real.
+    grp_share = ["ciclo_id", "fecha", "bloque_base", "variedad_canon"]
+    tallos_real_grado = pd.to_numeric(df.get("tallos_real_grado"), errors="coerce")
+    has_real_day_t = tallos_real_grado.groupby([df[c] for c in grp_share], dropna=False).transform(lambda s: s.notna().any())
+    tallos_real_filled = tallos_real_grado.where(~(has_real_day_t & tallos_real_grado.isna()), 0.0)
+    den_tallos = tallos_real_filled.groupby([df[c] for c in grp_share], dropna=False).transform("sum")
+    share_from_tallos = pd.Series(
+        np.where(has_real_day_t & (den_tallos > 0.0), tallos_real_filled / den_tallos, np.nan),
+        index=df.index,
+        dtype="float64",
+    )
+
+    # Fallback to source share only when real stems are unavailable for that day.
+    share_real = pd.to_numeric(df.get("share_grado_real"), errors="coerce")
+    has_real_day_s = share_real.groupby([df[c] for c in grp_share], dropna=False).transform(lambda s: s.notna().any())
+    share_real_filled = share_real.where(~(has_real_day_s & share_real.isna()), 0.0)
+    den_share = share_real_filled.groupby([df[c] for c in grp_share], dropna=False).transform("sum")
+    share_from_source = pd.Series(
+        np.where(has_real_day_s & (den_share > 0.0), share_real_filled / den_share, np.nan),
+        index=df.index,
+        dtype="float64",
+    )
+
+    df["target_share_grado"] = share_from_tallos.where(share_from_tallos.notna(), share_from_source)
     fac_raw = pd.to_numeric(df.get("factor_tallos_dia"), errors="coerce")
     fac_clip = pd.to_numeric(df.get("factor_tallos_dia_clipped"), errors="coerce")
     df["target_factor_tallos_dia"] = fac_raw.where(fac_raw.notna(), fac_clip)

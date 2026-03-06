@@ -20,8 +20,10 @@ DEFAULT_INPUT = DATA_DIR / "gold" / "ml1_nn" / "ds_ml1_nn_v1.parquet"
 MODELS_DIR = DATA_DIR / "models" / "ml1_nn"
 OUT_DIR = DATA_DIR / "gold" / "ml1_nn"
 IN_FACT_PESO = DATA_DIR / "silver" / "fact_peso_tallo_real_grado_dia.parquet"
+IN_FEATURES_COSECHA = DATA_DIR / "features" / "features_cosecha_bloque_fecha.parquet"
 
 _STEM_WEIGHT_CAPS_CACHE: dict[str, object] | None = None
+_SHARE_GRADE_PRIORS_CACHE: dict[str, object] | None = None
 
 
 def _parse_args() -> argparse.Namespace:
@@ -151,6 +153,168 @@ def _get_stem_weight_caps() -> dict[str, object]:
     if _STEM_WEIGHT_CAPS_CACHE is None:
         _STEM_WEIGHT_CAPS_CACHE = _build_stem_weight_caps()
     return _STEM_WEIGHT_CAPS_CACHE
+
+
+def _build_share_grade_priors() -> dict[str, object]:
+    if not IN_FEATURES_COSECHA.exists():
+        return {}
+    src = read_parquet(IN_FEATURES_COSECHA).copy()
+    need_any = {"grado", "tallos_real_grado"} | {"grado", "share_grado_real", "tallos_real_dia"}
+    if not ({"grado", "tallos_real_grado"} <= set(src.columns) or {"grado", "share_grado_real", "tallos_real_dia"} <= set(src.columns)):
+        return {}
+
+    src["grado"] = pd.to_numeric(src["grado"], errors="coerce").round().astype("Int64")
+    if "variedad_canon" in src.columns:
+        src["variedad_canon"] = _canon_str(src["variedad_canon"])
+    else:
+        src["variedad_canon"] = "UNKNOWN"
+
+    tallos = pd.to_numeric(src.get("tallos_real_grado"), errors="coerce")
+    if not tallos.notna().any():
+        share = pd.to_numeric(src.get("share_grado_real"), errors="coerce")
+        tallos_day = pd.to_numeric(src.get("tallos_real_dia"), errors="coerce")
+        tallos = share * tallos_day
+    src["tallos_real_grado"] = pd.to_numeric(tallos, errors="coerce")
+
+    src = src.loc[
+        src["grado"].notna()
+        & src["tallos_real_grado"].notna()
+        & (src["tallos_real_grado"] > 0.0)
+    ].copy()
+    if src.empty:
+        return {}
+
+    g = (
+        src.groupby("grado", dropna=False)["tallos_real_grado"]
+        .sum()
+        .astype("float64")
+    )
+    gtot = float(g.sum())
+    if not np.isfinite(gtot) or gtot <= 0.0:
+        return {}
+    g_share = (g / gtot).astype("float64")
+
+    vg_src = (
+        src.groupby(["variedad_canon", "grado"], dropna=False)["tallos_real_grado"]
+        .sum()
+        .reset_index()
+    )
+    vtot = vg_src.groupby("variedad_canon", dropna=False)["tallos_real_grado"].transform("sum")
+    vg_src["share"] = np.where(vtot > 0.0, vg_src["tallos_real_grado"] / vtot, np.nan)
+    vg_src = vg_src.loc[vg_src["share"].notna()].copy()
+    vg_idx = pd.MultiIndex.from_frame(vg_src[["variedad_canon", "grado"]])
+    vg_share = pd.Series(vg_src["share"].to_numpy(dtype=np.float64), index=vg_idx)
+
+    return {
+        "g_share": g_share,
+        "vg_share": vg_share,
+    }
+
+
+def _get_share_grade_priors() -> dict[str, object]:
+    global _SHARE_GRADE_PRIORS_CACHE
+    if _SHARE_GRADE_PRIORS_CACHE is None:
+        _SHARE_GRADE_PRIORS_CACHE = _build_share_grade_priors()
+    return _SHARE_GRADE_PRIORS_CACHE
+
+
+def _regularize_share_by_hist_prior(hg: pd.DataFrame, share_norm: pd.Series, day_key: list[str]) -> pd.Series:
+    priors = _get_share_grade_priors()
+    if not priors or "grado" not in hg.columns:
+        return share_norm
+
+    grade = pd.to_numeric(hg.get("grado"), errors="coerce").round().astype("Int64")
+    g_share = priors.get("g_share")
+    vg_share = priors.get("vg_share")
+    prior = pd.Series(np.nan, index=hg.index, dtype="float64")
+
+    if "variedad_canon" in hg.columns and isinstance(vg_share, pd.Series) and len(vg_share) > 0:
+        variedad = _canon_str(hg["variedad_canon"]).astype("string")
+        idx = pd.MultiIndex.from_arrays([variedad, grade], names=["variedad_canon", "grado"])
+        prior = pd.Series(idx.map(vg_share), index=hg.index, dtype="float64")
+
+    if isinstance(g_share, pd.Series) and len(g_share) > 0:
+        prior = prior.where(prior.notna(), grade.map(g_share))
+
+    # If prior is unknown, keep current normalized share.
+    prior = prior.where(prior.notna(), share_norm)
+    prior = prior.fillna(0.0).clip(lower=0.0)
+
+    # Normalize prior per day (simplex per (cycle, day, block, variety)).
+    grp_vals = [hg[c] for c in day_key]
+    pden = prior.groupby(grp_vals, dropna=False).transform("sum")
+    pn = prior.groupby(grp_vals, dropna=False).transform("size").clip(lower=1)
+    prior_norm = pd.Series(np.where(pden > 0.0, prior / pden, 1.0 / pn.astype(float)), index=hg.index, dtype="float64")
+    prior_norm = prior_norm.fillna(0.0).clip(lower=0.0)
+
+    pred0 = pd.to_numeric(share_norm, errors="coerce").fillna(0.0).clip(lower=0.0)
+
+    # Data-driven shrinkage: estimate lambda from observed real rows (no fixed multipliers).
+    # y_blend = (1-lambda)*pred + lambda*prior
+    # lambda chosen by minimizing weighted MAE on rows with real share labels.
+    lam = 0.0
+    lam_by_grade: dict[int, float] = {}
+    if {"target_share_grado", "mask_target_share_grado"} <= set(hg.columns):
+        y_true = pd.to_numeric(hg.get("target_share_grado"), errors="coerce")
+        w = pd.to_numeric(hg.get("mask_target_share_grado"), errors="coerce").fillna(0.0)
+        m_obs = y_true.notna() & (w > 0.0)
+        if bool(m_obs.any()):
+            cand = np.linspace(0.0, 0.90, 19, dtype=np.float64)
+            best = np.inf
+            best_lam = 0.0
+            yt = y_true.loc[m_obs].to_numpy(dtype=np.float64)
+            ww = w.loc[m_obs].to_numpy(dtype=np.float64)
+            pp = pred0.loc[m_obs].to_numpy(dtype=np.float64)
+            pr = prior_norm.loc[m_obs].to_numpy(dtype=np.float64)
+            wsum = float(np.sum(ww))
+            if wsum > 0.0:
+                for l in cand:
+                    yy = (1.0 - l) * pp + l * pr
+                    mae = float(np.sum(np.abs(yy - yt) * ww) / wsum)
+                    if mae + 1e-12 < best:
+                        best = mae
+                        best_lam = float(l)
+                lam = best_lam
+
+            # Grade-specific calibration (data-driven) where support is sufficient.
+            if "grado" in hg.columns:
+                gnum = pd.to_numeric(hg["grado"], errors="coerce").round().astype("Int64")
+                obs = hg.loc[m_obs].copy()
+                obs["__g"] = gnum.loc[m_obs]
+                obs["__y"] = y_true.loc[m_obs]
+                obs["__w"] = w.loc[m_obs]
+                obs["__p"] = pred0.loc[m_obs]
+                obs["__r"] = prior_norm.loc[m_obs]
+                for gg, sg in obs.groupby("__g", dropna=False, sort=False):
+                    if pd.isna(gg) or len(sg) < 120:
+                        continue
+                    ytg = pd.to_numeric(sg["__y"], errors="coerce").to_numpy(dtype=np.float64)
+                    wwg = pd.to_numeric(sg["__w"], errors="coerce").to_numpy(dtype=np.float64)
+                    ppg = pd.to_numeric(sg["__p"], errors="coerce").to_numpy(dtype=np.float64)
+                    prg = pd.to_numeric(sg["__r"], errors="coerce").to_numpy(dtype=np.float64)
+                    wsumg = float(np.sum(wwg))
+                    if wsumg <= 0.0:
+                        continue
+                    bestg = np.inf
+                    best_lg = lam
+                    for l in cand:
+                        yy = (1.0 - l) * ppg + l * prg
+                        mae = float(np.sum(np.abs(yy - ytg) * wwg) / wsumg)
+                        if mae + 1e-12 < bestg:
+                            bestg = mae
+                            best_lg = float(l)
+                    lam_by_grade[int(gg)] = best_lg
+    if "grado" in hg.columns and lam_by_grade:
+        gnum = pd.to_numeric(hg["grado"], errors="coerce").round().astype("Int64")
+        lam_row = gnum.map(lam_by_grade).astype("float64")
+        lam_row = lam_row.where(lam_row.notna(), lam).clip(lower=0.0, upper=0.95)
+        out = ((1.0 - lam_row) * pred0 + lam_row * prior_norm).clip(lower=0.0)
+    else:
+        out = ((1.0 - lam) * pred0 + lam * prior_norm).clip(lower=0.0)
+    den = out.groupby(grp_vals, dropna=False).transform("sum")
+    nn = out.groupby(grp_vals, dropna=False).transform("size").clip(lower=1)
+    out = pd.Series(np.where(den > 0.0, out / den, 1.0 / nn.astype(float)), index=hg.index, dtype="float64")
+    return out.fillna(0.0).clip(lower=0.0)
 
 
 def _apply_pred_factor_peso_caps(df: pd.DataFrame) -> None:
@@ -707,6 +871,7 @@ def _rebuild_ml1_harvest_chain(df: pd.DataFrame) -> pd.DataFrame:
         den = share_use.groupby(grp_vals, dropna=False).transform("sum")
         ngrp = share_use.groupby(grp_vals, dropna=False).transform("size").clip(lower=1)
         share_norm = pd.Series(np.where(den > 0.0, share_use / den, 1.0 / ngrp.astype(float)), index=hg.index).fillna(0.0)
+        share_norm = _regularize_share_by_hist_prior(hg=hg, share_norm=share_norm, day_key=day_key)
         tallos_grade_new = (hg["tallos_day_new"] * share_norm).clip(lower=0.0)
         out.loc[hg.index, "tallos_pred_ml1_grado_dia"] = tallos_grade_new.to_numpy(dtype=np.float64)
         out.loc[hg.index, "pred_share_grado"] = share_norm.to_numpy(dtype=np.float32)
