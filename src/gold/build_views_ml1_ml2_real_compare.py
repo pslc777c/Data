@@ -1519,25 +1519,178 @@ def _build_view_real(base: pd.DataFrame, run_id: str) -> pd.DataFrame:
                 "row_id",
                 "dh_dias_real",
                 "factor_hidr_real",
+                "factor_desp_real",
+                "factor_ajuste_real",
+                "b2_peso_dest_real_kg",
+                "share_dest_real_b2",
                 "tallos_post_real",
                 "kg_verde_real",
+                "kg_hidr_real",
                 "kg_post_real",
                 "aprovechamiento_real",
             ]
         ].copy()
         v = v.merge(pr, on="row_id", how="left")
-        m_post = v["stage"].eq("POST")
-        v.loc[m_post, "dh_dias"] = _num(v.loc[m_post, "dh_dias_real"], default=np.nan).to_numpy(dtype="float64")
-        v.loc[m_post, "factor_hidr"] = _num(v.loc[m_post, "factor_hidr_real"], default=np.nan).to_numpy(dtype="float64")
-        v.loc[m_post, "factor_desp"] = np.nan
-        v.loc[m_post, "factor_ajuste"] = np.nan
-        v.loc[m_post, "tallos_post"] = _num(v.loc[m_post, "tallos_post_real"], default=np.nan).to_numpy(dtype="float64")
-        v.loc[m_post, "kg_verde"] = _num(v.loc[m_post, "kg_verde_real"], default=np.nan).to_numpy(dtype="float64")
-        v.loc[m_post, "gramos_verde"] = v.loc[m_post, "kg_verde"] * 1000.0
-        v.loc[m_post, "kg_post"] = _num(v.loc[m_post, "kg_post_real"], default=np.nan).to_numpy(dtype="float64")
-        v.loc[m_post, "cajas_verde"] = np.nan
-        v.loc[m_post, "cajas_post"] = np.nan
-        v.loc[m_post, "aprovechamiento"] = _num(v.loc[m_post, "aprovechamiento_real"], default=np.nan).to_numpy(dtype="float64")
+    m_post = v["stage"].eq("POST")
+    if m_post.any():
+        p = v.loc[m_post].copy()
+        def _pcol(name: str) -> pd.Series:
+            return p[name] if name in p.columns else pd.Series(np.nan, index=p.index, dtype="float64")
+
+        key_cols = [c for c in ["ciclo_id", "fecha_evento", "bloque_base", "variedad_canon", "grado"] if c in p.columns]
+        grp_keys = [p[c] for c in key_cols]
+
+        # REAL POST must be anchored to observed HG stems by day+grade key.
+        if key_cols:
+            hg_map = (
+                v.loc[v["stage"].eq("HARVEST_GRADE"), key_cols + ["tallos_grado_dia"]]
+                .copy()
+                .assign(tallos_grado_dia=lambda d: pd.to_numeric(d["tallos_grado_dia"], errors="coerce").fillna(0.0))
+                .groupby(key_cols, dropna=False, as_index=False)
+                .agg(tallos_hg_real=("tallos_grado_dia", "sum"))
+            )
+            p = p.merge(hg_map, on=key_cols, how="left")
+        else:
+            p["tallos_hg_real"] = np.nan
+
+        mix_num = pd.to_numeric(_pcol("share_block_post"), errors="coerce")
+        if mix_num.notna().sum() == 0:
+            mix_num = pd.to_numeric(_pcol("tallos_post"), errors="coerce")
+        den_mix = mix_num.groupby(grp_keys, dropna=False).transform("sum")
+        cnt_mix = mix_num.groupby(grp_keys, dropna=False).transform("size").clip(lower=1)
+        mix_ratio_proj = pd.Series(
+            np.where(den_mix > 0.0, mix_num / den_mix, 1.0 / cnt_mix.astype(float)),
+            index=p.index,
+            dtype="float64",
+        ).fillna(0.0)
+        mix_ratio = mix_ratio_proj.copy()
+
+        dest = _canon_str(_pcol("destino"))
+        share_b2_real = pd.to_numeric(_pcol("share_dest_real_b2"), errors="coerce")
+        m_b2_real = dest.isin(["BLANCO", "TINTURADO", "ARCOIRIS"]) & share_b2_real.notna()
+        if bool(m_b2_real.any()):
+            b2_any = pd.Series(m_b2_real, index=p.index).groupby(grp_keys, dropna=False).transform("any")
+            mix_ratio = mix_ratio.where(~b2_any, 0.0)
+            mix_ratio = pd.Series(np.where(m_b2_real, share_b2_real, mix_ratio), index=p.index, dtype="float64")
+            den_adj = mix_ratio.groupby(grp_keys, dropna=False).transform("sum")
+            mix_ratio = pd.Series(
+                np.where(b2_any & (den_adj > 0.0), mix_ratio / den_adj, mix_ratio_proj),
+                index=p.index,
+                dtype="float64",
+            ).fillna(0.0)
+
+        tallos_target = pd.to_numeric(_pcol("tallos_hg_real"), errors="coerce").fillna(0.0)
+        tp_real_src = pd.to_numeric(_pcol("tallos_post_real"), errors="coerce")
+
+        # If BALANZA 2 destination shares exist, enforce that split on HG-real stems.
+        if bool(m_b2_real.any()):
+            b2_any = pd.Series(m_b2_real, index=p.index).groupby(grp_keys, dropna=False).transform("any")
+            w_b2 = pd.Series(np.where(m_b2_real, share_b2_real, 0.0), index=p.index, dtype="float64")
+            den_b2 = w_b2.groupby(grp_keys, dropna=False).transform("sum")
+            share_b2_norm = pd.Series(
+                np.where(b2_any & (den_b2 > 0.0), w_b2 / den_b2, np.nan),
+                index=p.index,
+                dtype="float64",
+            )
+            tp_b2 = (tallos_target * share_b2_norm).where(b2_any, np.nan)
+            tp_b2 = tp_b2.where(dest.isin(["BLANCO", "TINTURADO", "ARCOIRIS"]), np.where(b2_any, 0.0, np.nan))
+            tp_real_src = tp_real_src.where(~b2_any, tp_b2)
+
+        real_sum = tp_real_src.fillna(0.0).groupby(grp_keys, dropna=False).transform("sum")
+        residual = (tallos_target - real_sum).clip(lower=0.0)
+        m_real = tp_real_src.notna()
+        mix_missing = mix_ratio.where(~m_real, np.nan)
+        den_missing = mix_missing.groupby(grp_keys, dropna=False).transform("sum")
+        cnt_missing = (~m_real).groupby(grp_keys, dropna=False).transform("sum").clip(lower=1)
+        share_missing = pd.Series(
+            np.where(~m_real, np.where(den_missing > 0.0, mix_missing / den_missing, 1.0 / cnt_missing.astype(float)), np.nan),
+            index=p.index,
+            dtype="float64",
+        ).fillna(0.0)
+        tp_real_adj = tp_real_src.where(m_real, residual * share_missing)
+
+        # Force exact grade-level balance against HG real stems.
+        tp_real_adj_num = pd.to_numeric(tp_real_adj, errors="coerce").fillna(0.0)
+        grp_sum_adj = tp_real_adj_num.groupby(grp_keys, dropna=False).transform("sum")
+        scale_to_target = pd.Series(np.where(grp_sum_adj > 0.0, tallos_target / grp_sum_adj, np.nan), index=p.index, dtype="float64")
+        tp_real_adj = tp_real_adj_num * scale_to_target
+        mix_den_all = mix_ratio.groupby(grp_keys, dropna=False).transform("sum")
+        mix_cnt_all = mix_ratio.groupby(grp_keys, dropna=False).transform("size").clip(lower=1)
+        mix_share_all = pd.Series(
+            np.where(mix_den_all > 0.0, mix_ratio / mix_den_all, 1.0 / mix_cnt_all.astype(float)),
+            index=p.index,
+            dtype="float64",
+        ).fillna(0.0)
+        m_need_fill = tp_real_adj.isna() & (tallos_target > 0.0)
+        if m_need_fill.any():
+            tp_real_adj.loc[m_need_fill] = (tallos_target * mix_share_all).loc[m_need_fill]
+        tp_real_adj = pd.Series(
+            np.where(tallos_target <= 0.0, 0.0, np.clip(pd.to_numeric(tp_real_adj, errors="coerce"), 0.0, np.inf)),
+            index=p.index,
+            dtype="float64",
+        )
+
+        peso_real = pd.to_numeric(_pcol("peso_tallo_real_g"), errors="coerce")
+        peso_est = pd.to_numeric(_pcol("peso_tallo_estimado_g"), errors="coerce")
+        peso_use = peso_real.where(peso_real.notna(), peso_est)
+
+        kg_verde_real_src = pd.to_numeric(_pcol("kg_verde_real"), errors="coerce")
+        kg_post_real_src = pd.to_numeric(_pcol("kg_post_real"), errors="coerce")
+        kg_verde_adj = (tp_real_adj * peso_use / 1000.0).clip(lower=0.0)
+        kg_verde_adj = kg_verde_adj.where(kg_verde_adj.notna(), kg_verde_real_src)
+
+        fh_real = pd.to_numeric(_pcol("factor_hidr_real"), errors="coerce")
+        fd_real = pd.to_numeric(_pcol("factor_desp_real"), errors="coerce")
+        fa_real = pd.to_numeric(_pcol("factor_ajuste_real"), errors="coerce")
+        has_real_chain = fd_real.notna() | fa_real.notna()
+        kg_post_chain = (kg_verde_adj * fh_real.fillna(1.0) * fd_real.fillna(1.0) * fa_real.fillna(1.0)).clip(lower=0.0)
+        kg_post_adj = pd.Series(np.where(has_real_chain, kg_post_chain, kg_post_real_src), index=p.index, dtype="float64")
+        kg_post_adj = kg_post_adj.where(kg_post_adj.notna(), (kg_verde_adj * fh_real.fillna(1.0)).clip(lower=0.0))
+
+        m_zero = tp_real_adj.fillna(0.0).le(0.0)
+        if m_zero.any():
+            kg_verde_adj = kg_verde_adj.where(~m_zero, 0.0)
+            kg_post_adj = kg_post_adj.where(~m_zero, 0.0)
+
+        p["tallos_post_real"] = tp_real_adj
+        p["kg_verde_real"] = kg_verde_adj
+        p["kg_post_real"] = kg_post_adj
+        p["factor_hidr_real"] = fh_real
+        p["aprovechamiento_real"] = _safe_div(p["kg_post_real"], p["kg_verde_real"], default=np.nan)
+
+        fd_cur = pd.to_numeric(_pcol("factor_desp"), errors="coerce")
+        fa_cur = pd.to_numeric(_pcol("factor_ajuste"), errors="coerce")
+        p["dh_dias"] = _num(_pcol("dh_dias_real"), default=np.nan)
+        p["factor_hidr"] = p["factor_hidr_real"]
+        p["factor_desp"] = fd_real.where(fd_real.notna(), fd_cur)
+        p["factor_ajuste"] = fa_real.where(fa_real.notna(), fa_cur)
+        p["tallos_post"] = p["tallos_post_real"]
+        p["kg_verde"] = p["kg_verde_real"]
+        p["gramos_verde"] = p["kg_verde"] * 1000.0
+        p["kg_post"] = p["kg_post_real"]
+        p["cajas_verde"] = p["kg_verde"] / 10.0
+        p["cajas_post"] = p["kg_post"] / 10.0
+        p["aprovechamiento"] = _safe_div(p["kg_post"], p["kg_verde"], default=np.nan)
+
+        for c in [
+            "dh_dias",
+            "factor_hidr",
+            "factor_desp",
+            "factor_ajuste",
+            "tallos_post_real",
+            "kg_verde_real",
+            "kg_post_real",
+            "aprovechamiento_real",
+            "tallos_post",
+            "kg_verde",
+            "gramos_verde",
+            "kg_post",
+            "cajas_verde",
+            "cajas_post",
+            "aprovechamiento",
+        ]:
+            if c in p.columns:
+                v.loc[m_post, c] = p[c].to_numpy()
 
     # Real view should keep only observed rows in HG/POST.
     m_veg = v["stage"].eq("VEG")
@@ -1571,6 +1724,7 @@ def _build_view_real(base: pd.DataFrame, run_id: str) -> pd.DataFrame:
 
     _dedup_post_business_key(v, prefer_real=True)
     _enforce_hg_day_consistency(v)
+    _enforce_post_vs_hg_grade_balance(v)
     _apply_stage_masks(v)
     _fill_cycle_totals(v)
     return v
